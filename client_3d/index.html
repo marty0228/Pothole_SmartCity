@@ -2,41 +2,173 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>스마트시티 포트홀 관제</title>
+    <title>스마트시티 포트홀 관제 (고급 3D)</title>
+    
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
     <style>
-        body, html, #cesiumContainer { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+        body, html { width: 100%; height: 100%; margin: 0; overflow: hidden; font-family: sans-serif; }
+        #cesiumContainer { width: 100%; height: 100%; }
+        
+        #infoPanel {
+            position: absolute; top: 20px; right: 20px; width: 280px;
+            background: rgba(30, 30, 30, 0.9); color: white; padding: 15px;
+            border-radius: 8px; display: none; z-index: 10; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #infoPanel h3 { margin-top: 0; color: #ff4d4d; border-bottom: 1px solid #555; padding-bottom: 10px; }
+        .view-3d-btn {
+            width: 100%; padding: 10px; background: #ff4d4d; color: white; border: none;
+            border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px;
+        }
+        .view-3d-btn:hover { background: #ff3333; }
+
+        #threeModal {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 650px; height: 500px; background: #111; border: 2px solid #444;
+            border-radius: 10px; display: none; z-index: 20; box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+        }
+        #threeContainer { width: 100%; height: 430px; cursor: grab; }
+        .close-btn { position: absolute; top: 10px; right: 15px; color: white; font-size: 20px; cursor: pointer; z-index: 30; }
+        .modal-title { color: #fff; text-align: center; margin: 15px 0; font-size: 1.2em; position: absolute; width: 100%; pointer-events: none; }
     </style>
 </head>
 <body>
+
     <div id="cesiumContainer"></div>
+
+    <div id="infoPanel">
+        <h3>⚠️ 포트홀 감지 정보</h3>
+        <p><strong>위치:</strong> 세종대학교 인근</p>
+        <p><strong>크기:</strong> 가로 80cm x 세로 60cm</p>
+        <p><strong>추정 깊이:</strong> 15cm (위험)</p>
+        <button class="view-3d-btn" onclick="open3DViewer()">정밀 3D 보기 (마우스 회전 가능)</button>
+    </div>
+
+    <div id="threeModal">
+        <span class="close-btn" onclick="close3DViewer()">✖</span>
+        <div class="modal-title">마우스로 드래그하여 다각도로 확인하세요</div>
+        <div id="threeContainer"></div>
+    </div>
+
     <script>
-        // 1. 토큰 없이 무료 지도(OpenStreetMap)를 사용하는 뷰어 세팅
+        // ==========================================
+        // 1. Cesium 지도 세팅
+        // ==========================================
         const viewer = new Cesium.Viewer('cesiumContainer', {
-            imageryProvider: new Cesium.OpenStreetMapImageryProvider({
-                url: 'https://a.tile.openstreetmap.org/'
-            }),
-            baseLayerPicker: false, // 불필요한 UI 숨김
-            geocoder: false,
-            timeline: false,
-            animation: false
+            imageryProvider: new Cesium.OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' }),
+            baseLayerPicker: false, geocoder: false, timeline: false, animation: false, infoBox: false
         });
 
-        // 2. 세종대학교 위치 (위도, 경도, 카메라 높이 1500m)
-        const sejongPos = Cesium.Cartesian3.fromDegrees(127.0731, 37.5502, 1500);
+        const sejongPos = Cesium.Cartesian3.fromDegrees(127.0731, 37.5502, 1000);
+        viewer.camera.flyTo({ destination: sejongPos, duration: 2 });
 
-        // 3. 카메라 이동 (3초 동안 부드럽게 날아가기 - 이 효과가 발표 때 아주 멋집니다!)
-        viewer.camera.flyTo({ 
-            destination: sejongPos,
-            duration: 3 
-        });
-
-        // 4. 빨간 점 (포트홀 위치) 찍기
-        viewer.entities.add({
+        const potholePoint = viewer.entities.add({
             position: Cesium.Cartesian3.fromDegrees(127.0731, 37.5502),
-            point: { pixelSize: 15, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 }
+            point: { pixelSize: 15, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+            id: 'pothole_001'
         });
+
+        viewer.screenSpaceEventHandler.setInputAction(function onLeftClick(movement) {
+            const pickedObject = viewer.scene.pick(movement.position);
+            if (Cesium.defined(pickedObject) && pickedObject.id.id === 'pothole_001') {
+                document.getElementById('infoPanel').style.display = 'block';
+            } else {
+                document.getElementById('infoPanel').style.display = 'none';
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+        // ==========================================
+        // 2. Three.js 리얼한 포트홀 3D 렌더링
+        // ==========================================
+        let threeScene, threeCamera, threeRenderer, controls, animationId;
+
+        function open3DViewer() {
+            document.getElementById('threeModal').style.display = 'block';
+            
+            const container = document.getElementById('threeContainer');
+            if (container.innerHTML !== "") return; // 이미 그려졌으면 중복 실행 방지
+
+            // 1. 기본 씬 세팅
+            threeScene = new THREE.Scene();
+            threeScene.background = new THREE.Color(0x1a1a1a);
+            threeCamera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            threeCamera.position.set(0, 2, 3);
+
+            threeRenderer = new THREE.WebGLRenderer({ antialias: true });
+            threeRenderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(threeRenderer.domElement);
+
+            // 2. 마우스 컨트롤 (이게 핵심입니다!)
+            controls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+            controls.enableDamping = true;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05; // 바닥 밑으로는 못 보게 제한
+
+            // 3. 리얼한 조명 (그림자 지게 만들기)
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(5, 10, 2);
+            threeScene.add(dirLight);
+            threeScene.add(new THREE.AmbientLight(0x404040, 1.5));
+
+            // 4. 노면 지형 생성 (잘게 쪼갠 캔버스)
+            const roadGeo = new THREE.PlaneGeometry(6, 6, 100, 100);
+            roadGeo.rotateX(-Math.PI / 2); // 눕히기
+
+            // 5. 수학적으로 울퉁불퉁한 구멍 파기 (버텍스 조작)
+            const pos = roadGeo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let x = pos.getX(i);
+                let z = pos.getZ(i);
+                let distance = Math.sqrt(x*x + z*z);
+                
+                // 중심(0,0)에서 반지름 0.8 이내면 파이게 만듦
+                if (distance < 0.8) {
+                    // 자연스러운 분화구 곡선 + 깨진 아스팔트 노이즈
+                    let depth = (Math.cos((distance / 0.8) * Math.PI) + 1) * 0.5 * -0.5;
+                    let noise = (Math.random() - 0.5) * 0.15; // 울퉁불퉁함
+                    pos.setY(i, depth + noise);
+                } else {
+                    // 정상 도로 부분도 아스팔트 질감을 위해 미세한 노이즈 추가
+                    let noise = (Math.random() - 0.5) * 0.02;
+                    pos.setY(i, noise);
+                }
+            }
+            roadGeo.computeVertexNormals(); // 빛과 그림자를 위해 필수!
+
+            // 6. 거친 아스팔트 재질 적용
+            const roadMat = new THREE.MeshStandardMaterial({ 
+                color: 0x555555, 
+                roughness: 0.9, 
+                metalness: 0.1,
+                side: THREE.DoubleSide
+            });
+            const road = new THREE.Mesh(roadGeo, roadMat);
+            threeScene.add(road);
+
+            // 7. 부서진 아스팔트 잔해물 추가 (디테일 업!)
+            for(let i=0; i<20; i++) {
+                const rockGeo = new THREE.DodecahedronGeometry(Math.random() * 0.04 + 0.01);
+                const rockMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 1.0 });
+                const rock = new THREE.Mesh(rockGeo, rockMat);
+                // 구멍 바닥 쪽에 랜덤하게 흩뿌리기
+                rock.position.set((Math.random()-0.5)*1.2, -0.4 + (Math.random()*0.15), (Math.random()-0.5)*1.2);
+                threeScene.add(rock);
+            }
+
+            // 8. 렌더링 루프
+            function animate() {
+                animationId = requestAnimationFrame(animate);
+                controls.update(); // 마우스 드래그 반영
+                threeRenderer.render(threeScene, threeCamera);
+            }
+            animate();
+        }
+
+        function close3DViewer() {
+            document.getElementById('threeModal').style.display = 'none';
+        }
     </script>
 </body>
 </html>
