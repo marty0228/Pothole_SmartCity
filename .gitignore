@@ -1,0 +1,11 @@
+# 1. 파이썬 가상환경
+.venv/
+__pycache__/
+
+# 2. AI 학습용 대용량 데이터 및 결과물 (GitHub 업로드 방지)
+datasets/
+runs/
+*.pt
+
+# 3. OS 관련 파일
+.DS_Store
