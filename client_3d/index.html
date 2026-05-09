@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>스마트시티 포트홀 관제</title>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        body, html, #cesiumContainer { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    </style>
+</head>
+<body>
+    <div id="cesiumContainer"></div>
+    <script>
+        // 1. 토큰 없이 무료 지도(OpenStreetMap)를 사용하는 뷰어 세팅
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            imageryProvider: new Cesium.OpenStreetMapImageryProvider({
+                url: 'https://a.tile.openstreetmap.org/'
+            }),
+            baseLayerPicker: false, // 불필요한 UI 숨김
+            geocoder: false,
+            timeline: false,
+            animation: false
+        });
+
+        // 2. 세종대학교 위치 (위도, 경도, 카메라 높이 1500m)
+        const sejongPos = Cesium.Cartesian3.fromDegrees(127.0731, 37.5502, 1500);
+
+        // 3. 카메라 이동 (3초 동안 부드럽게 날아가기 - 이 효과가 발표 때 아주 멋집니다!)
+        viewer.camera.flyTo({ 
+            destination: sejongPos,
+            duration: 3 
+        });
+
+        // 4. 빨간 점 (포트홀 위치) 찍기
+        viewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(127.0731, 37.5502),
+            point: { pixelSize: 15, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 }
+        });
+    </script>
+</body>
+</html>
