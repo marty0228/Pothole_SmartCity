@@ -1,4 +1,4 @@
-HTML
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -94,20 +94,19 @@ HTML
         dirLight.shadow.camera.bottom = -500;
         scene.add(dirLight);
 
-        // ==========================================
-        // ⭐ 핵심 변경점 1: 코드로 '진짜 아스팔트' 질감 직접 만들기
-        // ==========================================
+      
+        // 아스팔트
+        
         function createAsphaltTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 512;
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
             
-            // 베이스 도로 색상
             ctx.fillStyle = '#2b2b2b';
             ctx.fillRect(0, 0, 512, 512);
             
-            // 자글자글한 아스팔트 돌멩이 노이즈 15만 개 생성
+            
             for (let i = 0; i < 150000; i++) {
                 ctx.fillStyle = Math.random() > 0.5 ? '#1a1a1a' : '#3a3a3a';
                 ctx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
@@ -167,9 +166,7 @@ HTML
                             const roadWidth = 8;
                             const roadSegmentGeo = new THREE.PlaneGeometry(roadWidth, distance);
                             
-                            // ==========================================
-                            // ⭐ 핵심 변경점 2: 도로 길이에 맞춰 텍스처 안 늘어나게 UV 맵핑
-                            // ==========================================
+                           
                             const uvs = roadSegmentGeo.attributes.uv.array;
                             for ( let j = 0; j < uvs.length; j += 2 ) {
                                 uvs[ j ] *= 1; // 가로 비율
