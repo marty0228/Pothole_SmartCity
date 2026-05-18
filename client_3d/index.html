@@ -2,55 +2,68 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>세종대 3D 관제 - 리얼 3D 입체 파손(포트홀/크랙)</title>
+    <title>세종대 스마트시티 - 리얼 3D 뎁스 관제 시뮬레이션</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #dab49d; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #d8aa8c; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        
+        /* 로딩 UI */
         #loading {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #fff; background: rgba(0,0,0,0.85); padding: 25px 45px; 
-            border-radius: 8px; font-size: 18px; font-weight: bold; z-index: 20;
-            border: 2px solid #00ffcc; text-align: center;
+            color: #fff; background: rgba(0,0,0,0.85); padding: 30px 50px; 
+            border-radius: 12px; font-size: 20px; font-weight: bold; z-index: 20;
+            border: 2px solid #00ffcc; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
+        
+        /* 미니맵 레이더 */
+        #minimap-container {
+            position: absolute; top: 20px; right: 20px; width: 250px; height: 250px;
+            background: rgba(15, 20, 25, 0.9); border: 2px solid #00ffcc; border-radius: 12px; 
+            z-index: 10; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+        }
+        #minimap { width: 100%; height: 100%; }
+        .minimap-title { position: absolute; top: 8px; left: 12px; color: #00ffcc; font-size: 11px; font-weight: bold; letter-spacing: 1px;}
+        
+        /* 좌측 하단 UI */
         #ui-panel {
             position: absolute; bottom: 30px; left: 30px; color: #eee;
-            background: rgba(15, 15, 15, 0.9); padding: 20px; border-radius: 12px; z-index: 10; border-left: 4px solid #00ffcc;
+            background: rgba(10, 15, 20, 0.9); padding: 25px; border-radius: 12px; z-index: 10;
+            border-left: 4px solid #00ffcc; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
         }
-        .key-btn { display: inline-block; background: #333; padding: 6px 12px; border-radius: 6px; margin: 4px; font-weight: bold; border: 1px solid #555; color: #fff; }
+        .key-btn { display: inline-block; background: #222; padding: 8px 14px; border-radius: 6px; margin: 4px; font-weight: bold; border: 1px solid #444; color: #fff; }
+        
+        /* 중앙 타겟팅 조준점 */
         #reticle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; z-index: 10; pointer-events: none; }
         .reticle-corner { position: absolute; width: 20px; height: 20px; border: 3px solid #00ffcc; }
         .tl { top: 0; left: 0; border-right: none; border-bottom: none; }
         .tr { top: 0; right: 0; border-left: none; border-bottom: none; }
         .bl { bottom: 0; left: 0; border-right: none; border-top: none; }
         .br { bottom: 0; right: 0; border-left: none; border-top: none; }
-        .dot { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background-color: red; border-radius: 50%; box-shadow: 0 0 10px red; }
+        .dot { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background-color: #ff0033; border-radius: 50%; box-shadow: 0 0 12px #ff0033; }
+        
+        /* 킥보드 핸들 */
         #scooter-handle {
-            position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); width: 350px; height: 160px; z-index: 5; pointer-events: none;
-            background: linear-gradient(to bottom, #111 25%, transparent 25%), linear-gradient(to right, transparent 46%, #222 46%, #222 54%, transparent 54%);
-            background-size: 100% 20px, 100% 100%; background-repeat: no-repeat;
+            position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%); width: 400px; height: 180px; z-index: 5; pointer-events: none;
+            background: linear-gradient(to bottom, #111 25%, transparent 25%), linear-gradient(to right, transparent 46%, #1a1a1a 46%, #1a1a1a 54%, transparent 54%);
+            background-size: 100% 25px, 100% 100%; background-repeat: no-repeat;
+            filter: drop-shadow(0 -10px 15px rgba(0,0,0,0.5));
         }
-        #minimap-container {
-            position: absolute; top: 20px; right: 20px; width: 250px; height: 250px;
-            background: rgba(10, 15, 20, 0.8); border: 2px solid #00ffcc; border-radius: 10px; z-index: 10; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-        }
-        #minimap { width: 100%; height: 100%; }
-        .minimap-title { position: absolute; top: 5px; left: 10px; color: #00ffcc; font-size: 12px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="loading">📡 리얼 3D 뎁스 렌더링 중...</div>
+    <div id="loading">📡 세종대 인프라 로드 중...<br><span style="font-size:14px; color:#aaa; font-weight:normal;">건물 렌더링 및 파손 데이터를 동기화하고 있습니다.</span></div>
     
     <div id="minimap-container">
-        <div class="minimap-title">🗺️ SEJONG UNIV. RADAR</div>
+        <div class="minimap-title">SEJONG CAMPUS RADAR</div>
         <canvas id="minimap" width="250" height="250"></canvas>
     </div>
 
     <div id="ui-panel">
-        <h3 style="margin: 0 0 15px 0; color: #00ffcc; font-size: 16px;">관제 시뮬레이션 모드</h3>
+        <h3 style="margin: 0 0 15px 0; color: #00ffcc; font-size: 16px;">진동 킥보드 관제 모드 (세종대)</h3>
         <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">W</span> 전진 가속</p>
-        <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">A</span> <span class="key-btn">D</span> 방향 조향</p>
-        <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">S</span> 브레이크</p>
+        <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">A</span> <span class="key-btn">D</span> 좌우 핸들</p>
+        <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">S</span> 브레이크 및 후진</p>
     </div>
     
     <div id="reticle">
@@ -60,167 +73,88 @@
     <div id="scooter-handle"></div>
 
     <script>
+        // ==========================================
+        // 1. 씬, 카메라, 조명
+        // ==========================================
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xdab49d);
-        scene.fog = new THREE.FogExp2(0xdab49d, 0.003);
+        scene.background = new THREE.Color(0xd8aa8c); 
+        scene.fog = new THREE.FogExp2(0xd8aa8c, 0.003);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
-        // 그림자 퀄리티 극대화 (포트홀 입체감을 위해)
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambientLight);
         
-        const dirLight = new THREE.DirectionalLight(0xffeedd, 1.5);
-        dirLight.position.set(100, 200, -100);
+        const dirLight = new THREE.DirectionalLight(0xffcba4, 1.8);
+        dirLight.position.set(150, 200, -200);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 2048;
         dirLight.shadow.mapSize.height = 2048;
-        dirLight.shadow.camera.near = 0.5;
-        dirLight.shadow.camera.far = 1000;
-        // 그림자 영역을 좁혀서 해상도를 극대화
-        dirLight.shadow.camera.left = -100; dirLight.shadow.camera.right = 100;
-        dirLight.shadow.camera.top = 100; dirLight.shadow.camera.bottom = -100;
+        dirLight.shadow.camera.left = -150; dirLight.shadow.camera.right = 150;
+        dirLight.shadow.camera.top = 150; dirLight.shadow.camera.bottom = -150;
         scene.add(dirLight);
 
-        // 밝은 아스팔트 (파손 객체와의 명도 대비를 위해)
-        function createAsphaltTexture() {
+        const baseGround = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x3d4435, roughness: 1.0 }));
+        baseGround.rotation.x = -Math.PI / 2; baseGround.position.y = -5.0; 
+        baseGround.receiveShadow = true;
+        scene.add(baseGround);
+
+        // ==========================================
+        // 2. 아스팔트 차선 텍스처
+        // ==========================================
+        function createRoadTexture() {
             const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 512;
+            canvas.width = 1024; canvas.height = 1024;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#888888'; ctx.fillRect(0, 0, 512, 512); 
-            for (let i = 0; i < 200000; i++) {
-                ctx.fillStyle = Math.random() > 0.5 ? '#777777' : '#999999';
-                ctx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
+            
+            ctx.fillStyle = '#3a3a3a'; ctx.fillRect(0, 0, 1024, 1024); 
+            for (let i = 0; i < 300000; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? '#2c2c2c' : '#4a4a4a';
+                ctx.fillRect(Math.random() * 1024, Math.random() * 1024, 1.5, 1.5);
             }
+            
+            ctx.fillStyle = '#e6b800';
+            ctx.fillRect(495, 0, 10, 1024); ctx.fillRect(519, 0, 10, 1024);
+
             const tex = new THREE.CanvasTexture(canvas);
             tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
             return tex;
         }
-
-        const roadMat = new THREE.MeshStandardMaterial({ map: createAsphaltTexture(), color: 0xcccccc, roughness: 1.0 });
-
-        // ==========================================
-        // ⭐ 1. 진짜 입체 포트홀 (Geometric Crater)
-        // ==========================================
-        function createDeepPothole(size = 3.0) {
-            const group = new THREE.Group();
-
-            // 1. 심연(Abyss): 빛을 받지 않는 완벽한 칠흑의 바닥
-            const abyssGeo = new THREE.CircleGeometry(size * 0.45, 32);
-            // MeshBasicMaterial은 조명에 반응하지 않아 완벽한 구멍처럼 보입니다.
-            const abyssMat = new THREE.MeshBasicMaterial({ color: 0x050505, depthWrite: false }); 
-            const abyss = new THREE.Mesh(abyssGeo, abyssMat);
-            abyss.rotation.x = -Math.PI / 2;
-            abyss.position.y = 0.01; // 도로(0.0)보다 아주 살짝 위
-            group.add(abyss);
-
-            // 2. 분화구 림(Rim): 실제 3D 돌멩이들로 테두리를 쌓아 올려 깊이감을 형성
-            const rimMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 1.0 });
-            const darkMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1.0 });
-
-            const count = 50;
-            for(let i=0; i<count; i++) {
-                const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.2);
-                const r = size * 0.45 + Math.random() * 0.1;
-                const rockSize = size * 0.15 * (0.5 + Math.random());
-                const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rockSize), rimMat);
-                // 가장자리 돌들은 도로 위로 튀어나와 안쪽 심연으로 그림자를 드리움
-                rock.position.set(Math.cos(angle) * r, 0.01 + rockSize/2.5, Math.sin(angle) * r);
-                rock.rotation.set(Math.random(), Math.random(), Math.random());
-                rock.castShadow = true; rock.receiveShadow = true;
-                group.add(rock);
-            }
-
-            // 3. 구멍 내부의 부서진 잔해들 (더 어두운 색상)
-            for(let i=0; i<25; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const r = Math.random() * size * 0.4;
-                const rockSize = size * 0.08 * (0.5 + Math.random());
-                const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rockSize), darkMat);
-                rock.position.set(Math.cos(angle) * r, 0.015 + rockSize/2, Math.sin(angle) * r);
-                rock.rotation.set(Math.random(), Math.random(), Math.random());
-                rock.castShadow = true;
-                group.add(rock);
-            }
-
-            return group;
-        }
+        const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.9, metalness: 0.1 });
 
         // ==========================================
-        // ⭐ 2. 묻히지 않는 초고대비 크랙 (Alpha Map 적용)
+        // ⭐ 3. 데이터 컨테이너 (실시간 생성)
         // ==========================================
-        function create3DCrack(size = 5.0) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1024; canvas.height = 1024; // 고해상도
-            const ctx = canvas.getContext('2d');
-            
-            // 검은색 배경 (투명하게 처리될 부분)
-            ctx.fillStyle = '#000000'; 
-            ctx.fillRect(0, 0, 1024, 1024);
-            
-            // 하얀색 선 (실제 크랙으로 보일 부분)
-            ctx.strokeStyle = '#ffffff'; 
-            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-            
-            function drawCrack(x, y, angle, depth, length) {
-                if (depth === 0) return;
-                ctx.lineWidth = depth * 5; // 두껍게
-                ctx.beginPath(); ctx.moveTo(x, y);
-                const nx = x + Math.cos(angle) * length;
-                const ny = y + Math.sin(angle) * length;
-                ctx.lineTo(nx, ny); ctx.stroke();
-                
-                drawCrack(nx, ny, angle - 0.4 + Math.random()*0.8, depth - 1, length * (0.5 + Math.random()*0.3));
-                drawCrack(nx, ny, angle + 0.4 - Math.random()*0.8, depth - 1, length * (0.5 + Math.random()*0.3));
-            }
-            
-            // 중앙에서 5가닥 뻗어나감
-            for(let i=0; i<5; i++) {
-                drawCrack(512, 512, (i/5)*Math.PI*2 + Math.random(), 5, 180);
-            }
+        const potholeData = [];
+        const crackData = [];
+        const buildingData = []; // 건물을 담을 배열 추가!
+        const roadSegments = []; 
+        let isCameraSet = false;
 
-            const alphaMap = new THREE.CanvasTexture(canvas);
-            
-            // 알파맵(AlphaMap)을 사용하여 흰색 선 부분만 시꺼먼 재질로 렌더링
-            const crackMat = new THREE.MeshStandardMaterial({ 
-                color: 0x0a0a0a, // 아주 진한 검은색 균열
-                alphaMap: alphaMap, 
-                transparent: true, 
-                depthWrite: false, // 도로 밑으로 파묻히는 Z-fighting 원천 차단
-                roughness: 1.0
-            });
-            
-            const crackDecal = new THREE.Mesh(new THREE.PlaneGeometry(size, size), crackMat);
-            crackDecal.rotation.x = -Math.PI / 2;
-            crackDecal.position.y = 0.03; // 도로(0.0)보다 확실하게 띄움
-
-            return crackDecal;
-        }
-
-        // ==========================================
-        // 3. 세종대 도로망 렌더링
-        // ==========================================
-        const centerLat = 37.5502; const centerLng = 127.0731;
+        const centerLat = 37.5502; const centerLng = 127.0731; // 세종대 중심
         function latLngToXZ(lat, lng) {
             const x = (lng - centerLng) * 88000;
             const z = -(lat - centerLat) * 111000; 
             return new THREE.Vector3(x, 0, z);
         }
 
-        const roadSegments = []; 
-
-        async function fetchRoadData() {
-            const bbox = "37.548,127.071,37.553,127.076";
+        // ==========================================
+        // 4. OSM 로드 및 3D 객체(건물, 도로) 배치
+        // ==========================================
+        async function fetchSejongRoads() {
+            const bbox = "37.548,127.070,37.553,127.076";
             const query = `[out:json];(way["highway"](${bbox}););out geom;`;
             const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
             try {
                 const response = await fetch(url);
+                if (!response.ok) throw new Error("API 통신 지연");
                 const data = await response.json();
 
                 data.elements.forEach(element => {
@@ -228,84 +162,207 @@
                         for(let i=0; i < element.geometry.length - 1; i++) {
                             const p1 = latLngToXZ(element.geometry[i].lat, element.geometry[i].lon);
                             const p2 = latLngToXZ(element.geometry[i+1].lat, element.geometry[i+1].lon);
-                            const dist = p1.distanceTo(p2); if(dist < 1) continue;
+                            const dist = p1.distanceTo(p2); 
+                            if(dist < 5) continue;
                             
-                            const roadGeo = new THREE.PlaneGeometry(8, dist);
-                            const uvs = roadGeo.attributes.uv.array;
-                            for ( let j = 0; j < uvs.length; j += 2 ) {
-                                uvs[ j ] *= 1; uvs[ j + 1 ] *= (dist / 8); 
+                            // 처음 로드되는 메인 도로를 기준으로 주변 환경 세팅
+                            if (!isCameraSet) {
+                                isCameraSet = true;
+                                let dir = new THREE.Vector3().subVectors(p2, p1).normalize();
+                                let right = new THREE.Vector3(-dir.z, 0, dir.x).normalize(); // 도로의 수직(오른쪽) 방향
+                                
+                                // [파손 구역 배치]
+                                let holePos = p1.clone().add(dir.clone().multiplyScalar(15));
+                                potholeData.push({ x: holePos.x, z: holePos.z, r: 2.5, depth: 0.9 });
+
+                                // 크랙을 확실히 보이게 25m 앞에 배치 (반경도 키움)
+                                let crackPos = p1.clone().add(dir.clone().multiplyScalar(28));
+                                crackData.push({ x: crackPos.x, z: crackPos.z, r: 3.5 });
+
+                                // [⭐ 랜드마크 건물 배치 (도로 기준 상대 좌표)]
+                                // 대양홀 (좌측 붉은 건물)
+                                buildingData.push({ x: p1.x - right.x*35 + dir.x*20, z: p1.z - right.z*35 + dir.z*20, w: 40, h: 25, d: 45, color: 0x8c3333, name: "대양홀" });
+                                // 광개토관 (우측 거대 타워)
+                                buildingData.push({ x: p1.x + right.x*45 + dir.x*70, z: p1.z + right.z*45 + dir.z*70, w: 45, h: 90, d: 45, color: 0xa0a5a8, name: "광개토관" });
+                                // 학생회관 (좌측 안쪽)
+                                buildingData.push({ x: p1.x - right.x*40 + dir.x*80, z: p1.z - right.z*40 + dir.z*80, w: 35, h: 22, d: 35, color: 0x888888, name: "학생회관" });
+
+                                // 시선 고정
+                                camera.position.set(p1.x, 1.8, p1.z);
+                                targetPos.set(p1.x, 1.8, p1.z);
+                                camera.lookAt(p2.x, 1.8, p2.z);
                             }
-                            const road = new THREE.Mesh(roadGeo, roadMat);
+
+                            const roadWidth = 20; 
+                            const roadGeo = new THREE.PlaneGeometry(roadWidth, dist, 32, Math.max(8, Math.floor(dist)));
+                            const roadMesh = new THREE.Mesh(roadGeo, roadMat);
                             const mid = p1.clone().lerp(p2, 0.5);
-                            road.position.set(mid.x, 0.0, mid.z); // 도로는 정확히 y=0
-                            road.lookAt(p2.x, 0.0, p2.z); road.rotateX(-Math.PI / 2);
-                            road.receiveShadow = true; scene.add(road);
-                            roadSegments.push({ p1: p1, p2: p2 });
+                            roadMesh.position.set(mid.x, 0.05, mid.z);
+                            roadMesh.lookAt(p2.x, 0.05, p2.z);
+                            roadMesh.rotateX(-Math.PI / 2);
+                            roadMesh.updateMatrixWorld();
+
+                            const positions = roadGeo.attributes.position;
+                            const v = new THREE.Vector3();
+                            for (let j = 0; j < positions.count; j++) {
+                                v.fromBufferAttribute(positions, j);
+                                roadMesh.localToWorld(v);
+
+                                for (let p of potholeData) {
+                                    let dx = v.x - p.x;
+                                    let dz = v.z - p.z;
+                                    let pDist = Math.sqrt(dx*dx + dz*dz);
+                                    
+                                    if (pDist < p.r) {
+                                        let normalizedDist = pDist / p.r;
+                                        let depthFalloff = Math.cos(normalizedDist * (Math.PI / 2));
+                                        let jaggedness = (Math.random() * 0.1);
+                                        v.y -= (p.depth * depthFalloff) + jaggedness;
+                                    }
+                                }
+                                roadMesh.worldToLocal(v);
+                                positions.setXYZ(j, v.x, v.y, v.z);
+                            }
+                            
+                            roadGeo.computeVertexNormals();
+                            roadMesh.receiveShadow = true; roadMesh.castShadow = true;
+                            scene.add(roadMesh);
+
+                            roadSegments.push({ p1: p1, p2: p2, width: roadWidth });
                         }
                     }
                 });
 
-                // 빌딩 생성
-                const buildingMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8 });
-                for(let i=0; i<80; i++) {
-                    const x = (Math.random() - 0.5) * 400; const z = (Math.random() - 0.5) * 400;
-                    if(Math.abs(x) < 15) continue; 
-                    const h = Math.random() * 40 + 15;
-                    const b = new THREE.Mesh(new THREE.BoxGeometry(20, h, 20), buildingMat);
-                    b.position.set(x, h/2, z);
-                    b.castShadow = true; b.receiveShadow = true; scene.add(b);
-                }
-
+                spawnBuildings(); // 건물 생성 함수 호출
+                spawnCrackDecals(); // 크랙 생성 함수 호출
                 document.getElementById('loading').style.display = 'none';
 
-                // ⭐ 포트홀과 크랙 배치 (엄청 크게 키움)
-                const pothole = createDeepPothole(3.5);
-                pothole.position.set(0, 0, -12); // 앞 12m
-                scene.add(pothole);
-
-                const crack = create3DCrack(6.0);
-                crack.position.set(0, 0, -25); // 앞 25m
-                scene.add(crack);
-
-            } catch (error) { document.getElementById('loading').innerText = "데이터 로딩 실패"; }
+            } catch (error) { 
+                document.getElementById('loading').innerHTML = "📡 OSM API 통신 지연 발생<br><span style='font-size:14px; color:#ffaa00; font-weight:normal;'>무료 서버 과부하 상태입니다. 새로고침 해주세요.</span>"; 
+            }
         }
-        fetchRoadData();
 
-        // 4. 미니맵
+        // ==========================================
+        // ⭐ 5. 캠퍼스 건물 생성 로직
+        // ==========================================
+        function spawnBuildings() {
+            buildingData.forEach(b => {
+                const bGeo = new THREE.BoxGeometry(b.w, b.h, b.d);
+                const bMat = new THREE.MeshStandardMaterial({ color: b.color, roughness: 0.8 });
+                const buildingMesh = new THREE.Mesh(bGeo, bMat);
+                buildingMesh.position.set(b.x, b.h / 2, b.z);
+                buildingMesh.castShadow = true; 
+                buildingMesh.receiveShadow = true;
+                scene.add(buildingMesh);
+            });
+        }
+
+        // ==========================================
+        // ⭐ 6. 아주 선명하고 두꺼워진 크랙 생성 로직
+        // ==========================================
+        function spawnCrackDecals() {
+            const crackGroup = new THREE.Group();
+            
+            crackData.forEach(c => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1024; // 캔버스 해상도 대폭 업그레이드
+                canvas.height = 1024;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, 1024, 1024);
+                
+                // 크랙이 돋보이도록 완전한 검은색과 그림자 효과 추가
+                ctx.strokeStyle = '#000000'; 
+                ctx.lineCap = 'round'; 
+                ctx.lineJoin = 'round';
+                
+                function drawCrack(x, y, angle, depth, length) {
+                    if (depth === 0) return;
+                    ctx.lineWidth = depth * 6.0; // 🚨 선 굵기를 이전보다 훨씬 두껍게!
+                    ctx.beginPath(); ctx.moveTo(x, y);
+                    const nx = x + Math.cos(angle) * length;
+                    const ny = y + Math.sin(angle) * length;
+                    ctx.lineTo(nx, ny); ctx.stroke();
+                    drawCrack(nx, ny, angle - 0.3 + Math.random()*0.6, depth - 1, length * (0.5+Math.random()*0.3));
+                    drawCrack(nx, ny, angle + 0.3 - Math.random()*0.6, depth - 1, length * (0.5+Math.random()*0.3));
+                }
+                
+                // 중앙에서 여러 갈래로 두껍게 뻗어 나가게 함
+                for(let i=0; i<5; i++) drawCrack(512, 512, (i/5)*Math.PI*2, 4, 150);
+
+                const crackTex = new THREE.CanvasTexture(canvas);
+                // 🚨 텍스처가 멀리서도 뭉개지지 않고 선명하게 유지되도록 필터링 적용
+                crackTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                crackTex.minFilter = THREE.LinearFilter;
+
+                const crackMat = new THREE.MeshStandardMaterial({ map: crackTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+                const crackDecal = new THREE.Mesh(new THREE.PlaneGeometry(c.r*2.5, c.r*2.5), crackMat);
+                crackDecal.rotation.x = -Math.PI / 2;
+                crackDecal.position.set(c.x, 0.08, c.z); // 살짝 띄움
+                crackGroup.add(crackDecal);
+            });
+            scene.add(crackGroup);
+        }
+
+        fetchSejongRoads();
+
+        // ==========================================
+        // 7. 실시간 위치 추적 미니맵 레이더 (건물 표시 포함)
+        // ==========================================
         const minimapCanvas = document.getElementById('minimap');
         const mCtx = minimapCanvas.getContext('2d');
 
         function updateMinimap() {
             mCtx.clearRect(0, 0, 250, 250);
-            const mapScale = 0.3; const cx = 125; const cy = 125;
+            const cx = 125; const cy = 125; const mapScale = 0.5;
 
-            mCtx.strokeStyle = '#555'; mCtx.lineWidth = 4;
+            // 도로망
+            mCtx.strokeStyle = '#555'; 
+            mCtx.lineCap = 'round';
             roadSegments.forEach(seg => {
+                mCtx.lineWidth = seg.width * mapScale;
                 mCtx.beginPath();
-                mCtx.moveTo(cx + seg.p1.x * mapScale, cy + seg.p1.z * mapScale);
-                mCtx.lineTo(cx + seg.p2.x * mapScale, cy + seg.p2.z * mapScale);
+                mCtx.moveTo(cx + (seg.p1.x - camera.position.x) * mapScale, cy + (seg.p1.z - camera.position.z) * mapScale);
+                mCtx.lineTo(cx + (seg.p2.x - camera.position.x) * mapScale, cy + (seg.p2.z - camera.position.z) * mapScale);
                 mCtx.stroke();
             });
 
-            const px = cx + camera.position.x * mapScale;
-            const py = cy + camera.position.z * mapScale;
-            const dir = new THREE.Vector3();
-            camera.getWorldDirection(dir);
-            const angle = Math.atan2(dir.z, dir.x);
-            
-            mCtx.fillStyle = 'rgba(0, 255, 204, 0.3)';
-            mCtx.beginPath(); mCtx.moveTo(px, py);
-            mCtx.arc(px, py, 30, angle - 0.5, angle + 0.5);
-            mCtx.closePath(); mCtx.fill();
+            // ⭐ 랜드마크 건물 (파란색 사각형)
+            mCtx.fillStyle = 'rgba(100, 150, 255, 0.6)';
+            buildingData.forEach(b => {
+                let rx = cx + (b.x - b.w/2 - camera.position.x) * mapScale;
+                let rz = cy + (b.z - b.d/2 - camera.position.z) * mapScale;
+                mCtx.fillRect(rx, rz, b.w * mapScale, b.d * mapScale);
+            });
 
-            mCtx.fillStyle = '#ff0000';
-            mCtx.beginPath(); mCtx.arc(px, py, 4, 0, Math.PI * 2); mCtx.fill();
+            // 포트홀 (주황색)
+            mCtx.fillStyle = '#ffaa00';
+            potholeData.forEach(p => {
+                mCtx.beginPath(); mCtx.arc(cx + (p.x - camera.position.x) * mapScale, cy + (p.z - camera.position.z) * mapScale, p.r * mapScale, 0, Math.PI*2); mCtx.fill();
+            });
+
+            // 크랙 (빨간색)
+            mCtx.fillStyle = '#ff3333';
+            crackData.forEach(c => {
+                mCtx.beginPath(); mCtx.arc(cx + (c.x - camera.position.x) * mapScale, cy + (c.z - camera.position.z) * mapScale, c.r * mapScale, 0, Math.PI*2); mCtx.fill();
+            });
+
+            // 내 위치 (초록색 시야각)
+            const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+            const angle = Math.atan2(dir.z, dir.x);
+            mCtx.fillStyle = 'rgba(0, 255, 204, 0.4)';
+            mCtx.beginPath(); mCtx.moveTo(cx, cy);
+            mCtx.arc(cx, cy, 35, angle - 0.5, angle + 0.5);
+            mCtx.closePath(); mCtx.fill();
+            mCtx.fillStyle = '#00ffcc';
+            mCtx.beginPath(); mCtx.arc(cx, cy, 5, 0, Math.PI * 2); mCtx.fill();
         }
 
-        // 5. 물리엔진
+        // ==========================================
+        // 8. 킥보드 주행 컨트롤러
+        // ==========================================
         camera.position.set(0, 1.8, 0); 
         const targetPos = new THREE.Vector3(0, 1.8, 0);
-        let speed = 0; const maxSpeed = 1.2; const acceleration = 0.02; const friction = 0.95;
+        let speed = 0; const maxSpeed = 1.5; const acceleration = 0.03; const friction = 0.94;
         const keys = { w: false, a: false, s: false, d: false };
 
         window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
@@ -322,7 +379,8 @@
 
             const dir = new THREE.Vector3();
             camera.getWorldDirection(dir); dir.y = 0; dir.normalize();
-            targetPos.addScaledVector(dir, speed);
+            
+            targetPos.set(targetPos.x + dir.x * speed, 1.8, targetPos.z + dir.z * speed);
             camera.position.lerp(targetPos, 0.15); 
             
             renderer.render(scene, camera);
