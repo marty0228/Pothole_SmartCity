@@ -1094,6 +1094,60 @@ function latLngToXZ(lat,lng){
     return new THREE.Vector3(x,0,z);
 }
 
+/* Cesium 지도에서 쓰는 17개 포트홀 좌표를 Three.js 좌표로 변환 */
+function initializePotholeDataFromMapCoordinates(){
+
+    potholeData.length = 0;
+
+    potholes.forEach((coord,index)=>{
+
+        const lat = coord[0];
+        const lng = coord[1];
+        const pos = latLngToXZ(lat,lng);
+
+        potholeData.push({
+            x:pos.x,
+            z:pos.z,
+            r:3.0,
+            depth:0.9,
+            index:index + 1,
+            lat:lat,
+            lng:lng
+        });
+    });
+}
+
+/* 3D 화면에서 포트홀 위치를 검은 원판과 번호로 표시 */
+function spawnPotholeMarkers(){
+
+    potholeData.forEach(p=>{
+
+        const holeMarker = new THREE.Mesh(
+            new THREE.CircleGeometry(p.r,32),
+            new THREE.MeshStandardMaterial({
+                color:0x050505,
+                roughness:1.0
+            })
+        );
+
+        holeMarker.rotation.x = -Math.PI/2;
+        holeMarker.position.set(p.x,0.11,p.z);
+        scene.add(holeMarker);
+
+        const ring = new THREE.Mesh(
+            new THREE.RingGeometry(p.r + 0.4,p.r + 0.75,32),
+            new THREE.MeshBasicMaterial({
+                color:0xffaa00,
+                side:THREE.DoubleSide
+            })
+        );
+
+        ring.rotation.x = -Math.PI/2;
+        ring.position.set(p.x,0.12,p.z);
+        scene.add(ring);
+    });
+}
+
 /* 이동 관련 변수 */
 
 camera.position.set(0,1.8,0);
@@ -1124,6 +1178,8 @@ window.addEventListener('keyup',(e)=>{
 /* OSM 통신 및 도로/건물/파손 구역 동적 생성 */
 
 async function fetchSejongRoads(){
+
+    initializePotholeDataFromMapCoordinates();
 
     const bbox = '37.548,127.070,37.553,127.076';
     const query = `[out:json];(way["highway"](${bbox}););out geom;`;
@@ -1171,20 +1227,10 @@ async function fetchSejongRoads(){
 
                     const roadWidth = 20;
 
-                    /* 카메라와 파손 구역은 첫 번째 큰 도로에 1회 설정 */
+                    /* 카메라와 크랙 구역은 첫 번째 큰 도로에 1회 설정 */
                     if(!isCameraSet && dist > 30){
 
                         isCameraSet = true;
-
-                        let holePos = p1.clone()
-                        .add(dir.clone().multiplyScalar(15));
-
-                        potholeData.push({
-                            x:holePos.x,
-                            z:holePos.z,
-                            r:2.5,
-                            depth:0.9
-                        });
 
                         let crackPos = p1.clone()
                         .add(dir.clone().multiplyScalar(35));
@@ -1320,6 +1366,7 @@ async function fetchSejongRoads(){
         });
 
         spawnBuildings();
+        spawnPotholeMarkers();
         spawnCrackDecals();
 
         document.getElementById('loading').style.display = 'none';
