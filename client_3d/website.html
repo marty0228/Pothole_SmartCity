@@ -433,120 +433,180 @@ body::after{
     cursor:pointer;
 }
 
+
 /* =========================
-   Three.js 페이지
+   Three.js OSM Simulation 페이지
 ========================= */
 
 #threePage{
     overflow:hidden;
+    background:#d8aa8c;
 }
 
 #threeCanvas{
+    position:absolute;
+    inset:0;
     width:100%;
     height:100vh;
 }
 
-.hud{
+#threeCanvas canvas{
+    display:block;
+    width:100%;
+    height:100%;
+}
+
+/* 로딩 UI */
+#threePage #loading{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    color:#fff;
+    background:rgba(0,0,0,0.85);
+    padding:30px 50px;
+    border-radius:12px;
+    font-size:20px;
+    font-weight:bold;
+    z-index:80;
+    border:2px solid #00ffcc;
+    text-align:center;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* 미니맵 레이더 */
+#threePage #minimap-container{
     position:absolute;
     top:110px;
-    left:24px;
     right:24px;
-    display:flex;
-    justify-content:space-between;
-    z-index:50;
+    width:250px;
+    height:250px;
+    background:rgba(15,20,25,0.9);
+    border:2px solid #00ffcc;
+    border-radius:12px;
+    z-index:60;
+    overflow:hidden;
+    box-shadow:0 8px 20px rgba(0,0,0,0.6);
+}
+
+#threePage #minimap{
+    width:100%;
+    height:100%;
+}
+
+#threePage .minimap-title{
+    position:absolute;
+    top:8px;
+    left:12px;
+    color:#00ffcc;
+    font-size:11px;
+    font-weight:bold;
+    letter-spacing:1px;
+}
+
+/* 좌측 하단 UI */
+#threePage #ui-panel{
+    position:absolute;
+    bottom:30px;
+    left:30px;
+    color:#eee;
+    background:rgba(10,15,20,0.9);
+    padding:25px;
+    border-radius:12px;
+    z-index:60;
+    border-left:4px solid #00ffcc;
+    box-shadow:0 8px 20px rgba(0,0,0,0.6);
+}
+
+#threePage .key-btn{
+    display:inline-block;
+    background:#222;
+    padding:8px 14px;
+    border-radius:6px;
+    margin:4px;
+    font-weight:bold;
+    border:1px solid #444;
+    color:#fff;
+}
+
+/* 중앙 타겟팅 조준점 */
+#threePage #reticle{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:80px;
+    height:80px;
+    z-index:60;
     pointer-events:none;
 }
 
-.hud-card{
-    min-width:260px;
-    padding:22px;
-    border-radius:22px;
-    background:rgba(10,15,22,0.72);
-    backdrop-filter:blur(18px);
-    border:1px solid rgba(0,255,255,0.12);
-}
-
-.hud-title{
-    color:#00ffee;
-    font-size:13px;
-    letter-spacing:2px;
-    margin-bottom:10px;
-}
-
-.hud-value{
-    font-size:36px;
-    font-weight:800;
-}
-
-.right-panel{
+#threePage .reticle-corner{
     position:absolute;
-    top:220px;
-    right:24px;
-    width:320px;
-    z-index:50;
+    width:20px;
+    height:20px;
+    border:3px solid #00ffcc;
 }
 
-.panel{
-    background:rgba(10,15,22,0.78);
-    border-radius:24px;
-    padding:24px;
-    margin-bottom:20px;
-    border:1px solid rgba(255,255,255,0.08);
-    backdrop-filter:blur(18px);
-}
+#threePage .tl{top:0;left:0;border-right:none;border-bottom:none;}
+#threePage .tr{top:0;right:0;border-left:none;border-bottom:none;}
+#threePage .bl{bottom:0;left:0;border-right:none;border-top:none;}
+#threePage .br{bottom:0;right:0;border-left:none;border-top:none;}
 
-.progress{
-    height:12px;
-    border-radius:20px;
-    overflow:hidden;
-    margin-top:12px;
-    background:#17202b;
-}
-
-.progress-inner{
-    height:100%;
-    width:40%;
-    background:linear-gradient(90deg,#00ffee,#2563eb);
-}
-
-.warning{
-    margin-top:18px;
-    padding:14px;
-    border-radius:14px;
-    background:rgba(255,80,80,0.15);
-    border:1px solid rgba(255,80,80,0.3);
-    color:#ffd4d4;
-}
-
-.bottom-bar{
+#threePage .dot{
     position:absolute;
-    bottom:28px;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:8px;
+    height:8px;
+    background-color:#ff0033;
+    border-radius:50%;
+    box-shadow:0 0 12px #ff0033;
+}
+
+/* 킥보드 핸들 */
+#threePage #scooter-handle{
+    position:absolute;
+    bottom:-30px;
     left:50%;
     transform:translateX(-50%);
-    width:820px;
-    display:flex;
-    gap:20px;
-    z-index:50;
+    width:400px;
+    height:180px;
+    z-index:55;
+    pointer-events:none;
+    background:linear-gradient(to bottom,#111 25%,transparent 25%),
+               linear-gradient(to right,transparent 46%,#1a1a1a 46%,#1a1a1a 54%,transparent 54%);
+    background-size:100% 25px,100% 100%;
+    background-repeat:no-repeat;
+    filter:drop-shadow(0 -10px 15px rgba(0,0,0,0.5));
 }
 
-.bottom-card{
-    flex:1;
-    padding:24px;
-    border-radius:24px;
-    background:rgba(10,15,22,0.72);
-    border:1px solid rgba(255,255,255,0.08);
-    backdrop-filter:blur(18px);
+/* 실시간 경고 알림창 UI */
+#threePage #alert-box{
+    position:absolute;
+    top:110px;
+    left:50%;
+    transform:translateX(-50%);
+    padding:15px 40px;
+    border-radius:8px;
+    font-size:22px;
+    font-weight:bold;
+    color:white;
+    text-align:center;
+    z-index:90;
+    display:none;
+    box-shadow:0 5px 15px rgba(0,0,0,0.5);
+    animation:blink 0.5s infinite alternate;
 }
 
-.speed{
-    font-size:58px;
-    font-weight:800;
+@keyframes blink{
+    from{opacity:1;}
+    to{opacity:0.7;}
 }
 
-.small{
-    margin-top:10px;
-    color:#9fb2bf;
-}
+#threePage .alert-pothole{background-color:#ff3300;border:3px solid #ffcc00;}
+#threePage .alert-crack{background-color:#ff9900;border:3px solid #ff0000;}
 
 /* =========================
    반응형
@@ -777,90 +837,38 @@ body::after{
 
     <div id="threeCanvas"></div>
 
-    <div class="hud">
-
-        <div class="hud-card">
-
-            <div class="hud-title">
-                AI CITY CONTROL
-            </div>
-
-            <div class="hud-value">
-                ONLINE
-            </div>
-
-        </div>
-
-        <div class="hud-card">
-
-            <div class="hud-title">
-                LIVE GPS
-            </div>
-
-            <div class="hud-value" id="gpsText">
-                0 / 0
-            </div>
-
-        </div>
-
+    <div id="loading">
+        📡 세종대 캠퍼스 로드 중...<br>
+        <span style="font-size:14px;color:#aaa;font-weight:normal;">
+            OSM 도로 데이터를 받아와 도로, 건물, 파손 구역을 생성하고 있습니다.
+        </span>
     </div>
 
-    <div class="right-panel">
+    <div id="alert-box"></div>
 
-        <div class="panel">
-
-            <h2 style="margin-bottom:16px;color:#00ffee;">
-                실시간 위험 분석
-            </h2>
-
-            <div style="display:flex;justify-content:space-between;">
-                <span>포트홀 위험도</span>
-                <span id="riskText">40%</span>
-            </div>
-
-            <div class="progress">
-                <div class="progress-inner" id="riskBar"></div>
-            </div>
-
-            <div class="warning">
-                AI Vision Detector 활성화
-            </div>
-
-        </div>
-
+    <div id="minimap-container">
+        <div class="minimap-title">SEJONG CAMPUS RADAR</div>
+        <canvas id="minimap" width="250" height="250"></canvas>
     </div>
 
-    <div class="bottom-bar">
-
-        <div class="bottom-card">
-
-            <div style="color:#00ffee;font-size:13px;">
-                SPEED
-            </div>
-
-            <div class="speed">
-                <span id="speedText">0</span> km/h
-            </div>
-
-            <div class="small">
-                AI 스마트 모빌리티 주행
-            </div>
-
-        </div>
-
-        <div class="bottom-card">
-
-            <div style="color:#00ffee;font-size:13px;">
-                CONTROL
-            </div>
-
-            <div class="small">
-                W A S D 로 이동 가능
-            </div>
-
-        </div>
-
+    <div id="ui-panel">
+        <h3 style="margin:0 0 15px 0;color:#00ffcc;font-size:16px;">
+            진동 킥보드 관제 모드
+        </h3>
+        <p style="margin:5px 0;font-size:14px;"><span class="key-btn">W</span> 전진 가속</p>
+        <p style="margin:5px 0;font-size:14px;"><span class="key-btn">A</span> <span class="key-btn">D</span> 좌우 핸들</p>
+        <p style="margin:5px 0;font-size:14px;"><span class="key-btn">S</span> 브레이크 및 후진</p>
     </div>
+
+    <div id="reticle">
+        <div class="reticle-corner tl"></div>
+        <div class="reticle-corner tr"></div>
+        <div class="reticle-corner bl"></div>
+        <div class="reticle-corner br"></div>
+        <div class="dot"></div>
+    </div>
+
+    <div id="scooter-handle"></div>
 
 </div>
 
@@ -973,163 +981,128 @@ potholes.forEach((coord,index)=>{
 
 });
 
+
 /* =========================
-   THREE.JS
+   THREE.JS - OSM 기반 3D 시뮬레이션
 ========================= */
 
 const scene = new THREE.Scene();
-
-scene.background = new THREE.Color(0x081018);
-
-scene.fog = new THREE.FogExp2(0x081018,0.0018);
+scene.background = new THREE.Color(0xd8aa8c);
+scene.fog = new THREE.FogExp2(0xd8aa8c,0.003);
 
 const camera = new THREE.PerspectiveCamera(
-    75,
+    60,
     window.innerWidth/window.innerHeight,
     0.1,
-    4000
+    2000
 );
-
-camera.position.set(0,2,120);
 
 const renderer = new THREE.WebGLRenderer({
     antialias:true
 });
 
 renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 document.getElementById('threeCanvas')
 .appendChild(renderer.domElement);
 
 /* 조명 */
 
-scene.add(new THREE.AmbientLight(0xffffff,0.6));
+const ambientLight = new THREE.AmbientLight(0xffffff,0.4);
+scene.add(ambientLight);
 
-const light = new THREE.DirectionalLight(0xffffff,1.4);
-
-light.position.set(200,300,100);
-
-scene.add(light);
+const dirLight = new THREE.DirectionalLight(0xffcba4,1.8);
+dirLight.position.set(150,200,-200);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.left = -200;
+dirLight.shadow.camera.right = 200;
+dirLight.shadow.camera.top = 200;
+dirLight.shadow.camera.bottom = -200;
+scene.add(dirLight);
 
 /* 바닥 */
 
-const ground = new THREE.Mesh(
-
-    new THREE.PlaneGeometry(5000,5000),
-
+const baseGround = new THREE.Mesh(
+    new THREE.PlaneGeometry(3000,3000),
     new THREE.MeshStandardMaterial({
-        color:0x151d29
+        color:0x3d4435,
+        roughness:1.0
     })
-
 );
 
-ground.rotation.x = -Math.PI/2;
+baseGround.rotation.x = -Math.PI/2;
+baseGround.position.y = -5.0;
+baseGround.receiveShadow = true;
+scene.add(baseGround);
 
-scene.add(ground);
+/* 아스팔트 차선 텍스처 */
 
-/* 도로 */
+function createRoadTexture(){
 
-function makeRoad(x,z,length,rot){
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
 
-    const road = new THREE.Mesh(
+    const ctx = canvas.getContext('2d');
 
-        new THREE.PlaneGeometry(20,length),
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(0,0,1024,1024);
 
-        new THREE.MeshStandardMaterial({
-            color:0x303030
-        })
+    for(let i=0;i<300000;i++){
+        ctx.fillStyle = Math.random() > 0.5 ? '#2c2c2c' : '#4a4a4a';
+        ctx.fillRect(Math.random()*1024,Math.random()*1024,1.5,1.5);
+    }
 
-    );
+    ctx.fillStyle = '#e6b800';
+    ctx.fillRect(495,0,10,1024);
+    ctx.fillRect(519,0,10,1024);
 
-    road.rotation.x = -Math.PI/2;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
 
-    road.rotation.z = rot;
-
-    road.position.set(x,0.03,z);
-
-    scene.add(road);
+    return tex;
 }
 
-makeRoad(0,0,1400,0);
-makeRoad(0,0,1400,Math.PI/2);
-makeRoad(240,100,900,0.5);
+const roadMat = new THREE.MeshStandardMaterial({
+    map:createRoadTexture(),
+    roughness:0.9,
+    metalness:0.1
+});
 
-/* 건물 */
+/* 데이터 컨테이너 */
 
-for(let i=0;i<180;i++){
+const potholeData = [];
+const crackData = [];
+const buildingData = [];
+const roadSegments = [];
 
-    const h = 40 + Math.random()*180;
+let isCameraSet = false;
 
-    const mesh = new THREE.Mesh(
+const centerLat = 37.5502;
+const centerLng = 127.0731;
 
-        new THREE.BoxGeometry(
-            25+Math.random()*40,
-            h,
-            25+Math.random()*40
-        ),
+function latLngToXZ(lat,lng){
 
-        new THREE.MeshStandardMaterial({
+    const x = (lng - centerLng) * 88000;
+    const z = -(lat - centerLat) * 111000;
 
-            color:new THREE.Color(
-                0.3+Math.random()*0.3,
-                0.4+Math.random()*0.2,
-                0.5+Math.random()*0.4
-            )
-
-        })
-
-    );
-
-    mesh.position.set(
-
-        (Math.random()-0.5)*2200,
-        h/2,
-        (Math.random()-0.5)*2200
-
-    );
-
-    scene.add(mesh);
+    return new THREE.Vector3(x,0,z);
 }
 
-/* 포트홀 */
+/* 이동 관련 변수 */
 
-const potholeObjects = [];
-
-for(let i=0;i<16;i++){
-
-    const hole = new THREE.Mesh(
-
-        new THREE.CylinderGeometry(
-            5,
-            5,
-            1,
-            32
-        ),
-
-        new THREE.MeshStandardMaterial({
-            color:0x050505
-        })
-
-    );
-
-    hole.rotation.x = Math.PI/2;
-
-    hole.position.set(
-
-        (Math.random()-0.5)*1000,
-        0.05,
-        (Math.random()-0.5)*1000
-
-    );
-
-    scene.add(hole);
-
-    potholeObjects.push(hole);
-}
-
-/* 이동 */
+camera.position.set(0,1.8,0);
+const targetPos = new THREE.Vector3(0,1.8,0);
 
 let speed = 0;
+const maxSpeed = 1.5;
+const acceleration = 0.03;
+const friction = 0.94;
 
 const keys = {
     w:false,
@@ -1137,6 +1110,8 @@ const keys = {
     s:false,
     d:false
 };
+
+const alertBox = document.getElementById('alert-box');
 
 window.addEventListener('keydown',(e)=>{
     keys[e.key.toLowerCase()] = true;
@@ -1146,64 +1121,489 @@ window.addEventListener('keyup',(e)=>{
     keys[e.key.toLowerCase()] = false;
 });
 
+/* OSM 통신 및 도로/건물/파손 구역 동적 생성 */
+
+async function fetchSejongRoads(){
+
+    const bbox = '37.548,127.070,37.553,127.076';
+    const query = `[out:json];(way["highway"](${bbox}););out geom;`;
+    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+    try{
+
+        const response = await fetch(url);
+
+        if(!response.ok){
+            throw new Error('API 통신 지연');
+        }
+
+        const data = await response.json();
+
+        data.elements.forEach(element=>{
+
+            if(element.geometry && element.geometry.length > 1){
+
+                for(let i=0;i<element.geometry.length-1;i++){
+
+                    const p1 = latLngToXZ(
+                        element.geometry[i].lat,
+                        element.geometry[i].lon
+                    );
+
+                    const p2 = latLngToXZ(
+                        element.geometry[i+1].lat,
+                        element.geometry[i+1].lon
+                    );
+
+                    const dist = p1.distanceTo(p2);
+
+                    if(dist < 5) continue;
+
+                    let dir = new THREE.Vector3()
+                    .subVectors(p2,p1)
+                    .normalize();
+
+                    let right = new THREE.Vector3(
+                        -dir.z,
+                        0,
+                        dir.x
+                    ).normalize();
+
+                    const roadWidth = 20;
+
+                    /* 카메라와 파손 구역은 첫 번째 큰 도로에 1회 설정 */
+                    if(!isCameraSet && dist > 30){
+
+                        isCameraSet = true;
+
+                        let holePos = p1.clone()
+                        .add(dir.clone().multiplyScalar(15));
+
+                        potholeData.push({
+                            x:holePos.x,
+                            z:holePos.z,
+                            r:2.5,
+                            depth:0.9
+                        });
+
+                        let crackPos = p1.clone()
+                        .add(dir.clone().multiplyScalar(35));
+
+                        crackData.push({
+                            x:crackPos.x,
+                            z:crackPos.z,
+                            r:3.5
+                        });
+
+                        camera.position.set(p1.x,1.8,p1.z);
+                        targetPos.set(p1.x,1.8,p1.z);
+                        camera.lookAt(p2.x,1.8,p2.z);
+                    }
+
+                    /* 도로망을 따라 건물 데이터 생성 */
+                    if(dist > 20){
+
+                        let numBuildings = Math.floor(dist/40);
+
+                        for(let k=1;k<=numBuildings;k++){
+
+                            let t = k/(numBuildings+1);
+                            let bCenter = p1.clone().lerp(p2,t);
+
+                            if(Math.random() > 0.3){
+
+                                let bw = 15 + Math.random()*25;
+                                let bd = 15 + Math.random()*25;
+                                let bh = 15 + Math.random()*40;
+
+                                let bx = bCenter.x - right.x*(roadWidth/2 + bw/2 + 5);
+                                let bz = bCenter.z - right.z*(roadWidth/2 + bd/2 + 5);
+
+                                let baseColor = new THREE.Color(
+                                    0.5 + Math.random()*0.2,
+                                    0.5 + Math.random()*0.2,
+                                    0.5 + Math.random()*0.2
+                                );
+
+                                buildingData.push({
+                                    x:bx,
+                                    z:bz,
+                                    w:bw,
+                                    h:bh,
+                                    d:bd,
+                                    color:baseColor.getHex()
+                                });
+                            }
+
+                            if(Math.random() > 0.3){
+
+                                let bw = 15 + Math.random()*25;
+                                let bd = 15 + Math.random()*25;
+                                let bh = 15 + Math.random()*40;
+
+                                let bx = bCenter.x + right.x*(roadWidth/2 + bw/2 + 5);
+                                let bz = bCenter.z + right.z*(roadWidth/2 + bd/2 + 5);
+
+                                let baseColor = new THREE.Color(
+                                    0.5 + Math.random()*0.2,
+                                    0.5 + Math.random()*0.2,
+                                    0.5 + Math.random()*0.2
+                                );
+
+                                buildingData.push({
+                                    x:bx,
+                                    z:bz,
+                                    w:bw,
+                                    h:bh,
+                                    d:bd,
+                                    color:baseColor.getHex()
+                                });
+                            }
+                        }
+                    }
+
+                    const roadGeo = new THREE.PlaneGeometry(
+                        roadWidth,
+                        dist,
+                        32,
+                        Math.max(8,Math.floor(dist))
+                    );
+
+                    const roadMesh = new THREE.Mesh(roadGeo,roadMat);
+                    const mid = p1.clone().lerp(p2,0.5);
+
+                    roadMesh.position.set(mid.x,0.05,mid.z);
+                    roadMesh.lookAt(p2.x,0.05,p2.z);
+                    roadMesh.rotateX(-Math.PI/2);
+                    roadMesh.updateMatrixWorld();
+
+                    const positions = roadGeo.attributes.position;
+                    const v = new THREE.Vector3();
+
+                    for(let j=0;j<positions.count;j++){
+
+                        v.fromBufferAttribute(positions,j);
+                        roadMesh.localToWorld(v);
+
+                        for(let p of potholeData){
+
+                            let dx = v.x - p.x;
+                            let dz = v.z - p.z;
+                            let pDist = Math.sqrt(dx*dx + dz*dz);
+
+                            if(pDist < p.r){
+
+                                let normalizedDist = pDist/p.r;
+                                let depthFalloff = Math.cos(normalizedDist*(Math.PI/2));
+                                let jaggedness = Math.random()*0.1;
+
+                                v.y -= (p.depth*depthFalloff) + jaggedness;
+                            }
+                        }
+
+                        roadMesh.worldToLocal(v);
+                        positions.setXYZ(j,v.x,v.y,v.z);
+                    }
+
+                    roadGeo.computeVertexNormals();
+                    roadMesh.receiveShadow = true;
+                    roadMesh.castShadow = true;
+                    scene.add(roadMesh);
+
+                    roadSegments.push({
+                        p1:p1,
+                        p2:p2,
+                        width:roadWidth
+                    });
+                }
+            }
+        });
+
+        spawnBuildings();
+        spawnCrackDecals();
+
+        document.getElementById('loading').style.display = 'none';
+    }
+    catch(error){
+
+        document.getElementById('loading').innerHTML =
+        "📡 OSM API 통신 지연 발생<br><span style='font-size:14px;color:#ffaa00;font-weight:normal;'>무료 서버 과부하 상태입니다. 새로고침 해주세요.</span>";
+    }
+}
+
+/* 건물 메쉬 생성 */
+
+function spawnBuildings(){
+
+    buildingData.forEach(b=>{
+
+        const bGeo = new THREE.BoxGeometry(b.w,b.h,b.d);
+        const bMat = new THREE.MeshStandardMaterial({
+            color:b.color,
+            roughness:0.9
+        });
+
+        const buildingMesh = new THREE.Mesh(bGeo,bMat);
+        buildingMesh.position.set(b.x,b.h/2,b.z);
+        buildingMesh.castShadow = true;
+        buildingMesh.receiveShadow = true;
+        scene.add(buildingMesh);
+    });
+}
+
+/* 크랙 스티커 생성 */
+
+function spawnCrackDecals(){
+
+    const crackGroup = new THREE.Group();
+
+    crackData.forEach(c=>{
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 1024;
+
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#000000';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        function drawCrack(x,y,angle,depth,length){
+
+            if(depth === 0) return;
+
+            ctx.lineWidth = depth*6.0;
+            ctx.beginPath();
+            ctx.moveTo(x,y);
+
+            const nx = x + Math.cos(angle)*length;
+            const ny = y + Math.sin(angle)*length;
+
+            ctx.lineTo(nx,ny);
+            ctx.stroke();
+
+            drawCrack(
+                nx,
+                ny,
+                angle - 0.3 + Math.random()*0.6,
+                depth - 1,
+                length*(0.5 + Math.random()*0.3)
+            );
+
+            drawCrack(
+                nx,
+                ny,
+                angle + 0.3 - Math.random()*0.6,
+                depth - 1,
+                length*(0.5 + Math.random()*0.3)
+            );
+        }
+
+        for(let i=0;i<5;i++){
+            drawCrack(512,512,(i/5)*Math.PI*2,4,150);
+        }
+
+        const crackTex = new THREE.CanvasTexture(canvas);
+        crackTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        crackTex.minFilter = THREE.LinearFilter;
+
+        const crackMat = new THREE.MeshStandardMaterial({
+            map:crackTex,
+            transparent:true,
+            depthWrite:false,
+            polygonOffset:true,
+            polygonOffsetFactor:-1
+        });
+
+        const crackDecal = new THREE.Mesh(
+            new THREE.PlaneGeometry(c.r*2.5,c.r*2.5),
+            crackMat
+        );
+
+        crackDecal.rotation.x = -Math.PI/2;
+        crackDecal.position.set(c.x,0.08,c.z);
+
+        crackGroup.add(crackDecal);
+    });
+
+    scene.add(crackGroup);
+}
+
+fetchSejongRoads();
+
+/* 미니맵 */
+
+const minimapCanvas = document.getElementById('minimap');
+const mCtx = minimapCanvas.getContext('2d');
+
+function updateMinimap(){
+
+    mCtx.clearRect(0,0,250,250);
+
+    const cx = 125;
+    const cy = 125;
+    const mapScale = 0.5;
+
+    mCtx.strokeStyle = '#555';
+    mCtx.lineCap = 'round';
+
+    roadSegments.forEach(seg=>{
+
+        mCtx.lineWidth = seg.width*mapScale;
+        mCtx.beginPath();
+
+        mCtx.moveTo(
+            cx + (seg.p1.x - camera.position.x)*mapScale,
+            cy + (seg.p1.z - camera.position.z)*mapScale
+        );
+
+        mCtx.lineTo(
+            cx + (seg.p2.x - camera.position.x)*mapScale,
+            cy + (seg.p2.z - camera.position.z)*mapScale
+        );
+
+        mCtx.stroke();
+    });
+
+    mCtx.fillStyle = 'rgba(100,150,255,0.6)';
+
+    buildingData.forEach(b=>{
+
+        let rx = cx + (b.x - b.w/2 - camera.position.x)*mapScale;
+        let rz = cy + (b.z - b.d/2 - camera.position.z)*mapScale;
+
+        mCtx.fillRect(rx,rz,b.w*mapScale,b.d*mapScale);
+    });
+
+    mCtx.fillStyle = '#ffaa00';
+
+    potholeData.forEach(p=>{
+
+        mCtx.beginPath();
+        mCtx.arc(
+            cx + (p.x - camera.position.x)*mapScale,
+            cy + (p.z - camera.position.z)*mapScale,
+            p.r*mapScale,
+            0,
+            Math.PI*2
+        );
+        mCtx.fill();
+    });
+
+    mCtx.fillStyle = '#ff3333';
+
+    crackData.forEach(c=>{
+
+        mCtx.beginPath();
+        mCtx.arc(
+            cx + (c.x - camera.position.x)*mapScale,
+            cy + (c.z - camera.position.z)*mapScale,
+            c.r*mapScale,
+            0,
+            Math.PI*2
+        );
+        mCtx.fill();
+    });
+
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+
+    const angle = Math.atan2(dir.z,dir.x);
+
+    mCtx.fillStyle = 'rgba(0,255,204,0.4)';
+    mCtx.beginPath();
+    mCtx.moveTo(cx,cy);
+    mCtx.arc(cx,cy,35,angle-0.5,angle+0.5);
+    mCtx.closePath();
+    mCtx.fill();
+
+    mCtx.fillStyle = '#00ffcc';
+    mCtx.beginPath();
+    mCtx.arc(cx,cy,5,0,Math.PI*2);
+    mCtx.fill();
+}
+
+/* 충돌 감지 */
+
+function checkCollisions(){
+
+    let inPothole = false;
+    let inCrack = false;
+
+    for(let p of potholeData){
+
+        let dx = camera.position.x - p.x;
+        let dz = camera.position.z - p.z;
+
+        if(Math.sqrt(dx*dx + dz*dz) < p.r){
+            inPothole = true;
+            break;
+        }
+    }
+
+    if(!inPothole){
+
+        for(let c of crackData){
+
+            let dx = camera.position.x - c.x;
+            let dz = camera.position.z - c.z;
+
+            if(Math.sqrt(dx*dx + dz*dz) < c.r){
+                inCrack = true;
+                break;
+            }
+        }
+    }
+
+    if(inPothole){
+        alertBox.style.display = 'block';
+        alertBox.className = 'alert-pothole';
+        alertBox.innerText = '⚠️ [위험] 포트홀 통과 중! ⚠️';
+    }
+    else if(inCrack){
+        alertBox.style.display = 'block';
+        alertBox.className = 'alert-crack';
+        alertBox.innerText = '⚠️ [주의] 크랙 구역 통과 중 ⚠️';
+    }
+    else{
+        alertBox.style.display = 'none';
+    }
+}
+
 /* 애니메이션 */
 
 function animate(){
 
     requestAnimationFrame(animate);
 
-    if(keys.w) speed += 0.03;
-    if(keys.s) speed -= 0.03;
+    if(keys.w){
+        speed = Math.min(speed + acceleration,maxSpeed);
+    }
+    else if(keys.s){
+        speed = Math.max(speed - acceleration,-maxSpeed);
+    }
+    else{
+        speed *= friction;
+    }
 
-    speed *= 0.96;
-
-    if(keys.a) camera.rotation.y += 0.025;
-    if(keys.d) camera.rotation.y -= 0.025;
+    if(keys.a) camera.rotation.y -= 0.03;
+    if(keys.d) camera.rotation.y += 0.03;
 
     const dir = new THREE.Vector3();
-
     camera.getWorldDirection(dir);
-
     dir.y = 0;
+    dir.normalize();
 
-    camera.position.x += dir.x * speed;
-    camera.position.z += dir.z * speed;
-
-    document.getElementById('speedText').innerText =
-        Math.abs(Math.floor(speed*45));
-
-    document.getElementById('gpsText').innerText =
-        camera.position.x.toFixed(1)
-        + " / " +
-        camera.position.z.toFixed(1);
-
-    let nearest = 9999;
-
-    potholeObjects.forEach(p=>{
-
-        const d = camera.position.distanceTo(
-            p.position
-        );
-
-        if(d < nearest){
-            nearest = d;
-        }
-    });
-
-    let risk = Math.max(
-        0,
-        Math.min(
-            100,
-            Math.floor((1/(nearest/40))*100)
-        )
+    targetPos.set(
+        targetPos.x + dir.x*speed,
+        1.8,
+        targetPos.z + dir.z*speed
     );
 
-    document.getElementById('riskText').innerText =
-        risk + "%";
+    camera.position.lerp(targetPos,0.15);
 
-    document.getElementById('riskBar').style.width =
-        risk + "%";
-
+    checkCollisions();
+    updateMinimap();
     renderer.render(scene,camera);
 }
 
@@ -1213,16 +1613,9 @@ animate();
 
 window.addEventListener('resize',()=>{
 
-    camera.aspect =
-        window.innerWidth/window.innerHeight;
-
+    camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
-
-    renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-    );
-
+    renderer.setSize(window.innerWidth,window.innerHeight);
 });
 
 </script>
