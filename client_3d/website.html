@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<title>SEJONG SMART CITY PLATFORM</title>
+
+<!-- Cesium -->
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<!-- OrbitControls -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    overflow:hidden;
+    font-family:'Pretendard',sans-serif;
+    background:#050816;
+    color:white;
+}
+
+/* =========================
+   배경
+========================= */
+
+body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    background:
+    radial-gradient(circle at top left,#1e3a8a 0%,transparent 30%),
+    radial-gradient(circle at bottom right,#0ea5e9 0%,transparent 25%),
+    linear-gradient(135deg,#020617,#08111f,#050816);
+    z-index:-2;
+}
+
+body::after{
+    content:'';
+    position:fixed;
+    inset:0;
+    background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size:40px 40px;
+    z-index:-1;
+}
+
+/* =========================
+   상단 네비게이션
+========================= */
+
+.top-nav{
+    position:fixed;
+    top:20px;
+    left:50%;
+    transform:translateX(-50%);
+    width:92%;
+    height:74px;
+    background:rgba(10,15,25,0.72);
+    backdrop-filter:blur(20px);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:22px;
+    z-index:999;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 26px;
+    box-shadow:0 15px 45px rgba(0,0,0,0.45);
+}
+
+.logo-wrap{
+    display:flex;
+    align-items:center;
+    gap:14px;
+}
+
+.logo-icon{
+    width:48px;
+    height:48px;
+    border-radius:16px;
+    background:linear-gradient(135deg,#00ffee,#2563eb);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:800;
+    color:#001018;
+    font-size:20px;
+    box-shadow:0 0 25px rgba(0,255,238,0.4);
+}
+
+.logo-text h1{
+    font-size:20px;
+    font-weight:800;
+}
+
+.logo-text p{
+    font-size:12px;
+    color:#8ca3b8;
+    margin-top:2px;
+}
+
+.menu{
+    display:flex;
+    gap:14px;
+}
+
+.menu-btn{
+    border:none;
+    background:rgba(255,255,255,0.04);
+    color:#cfe4ff;
+    padding:14px 22px;
+    border-radius:14px;
+    cursor:pointer;
+    font-weight:600;
+    transition:0.25s;
+    border:1px solid rgba(255,255,255,0.05);
+}
+
+.menu-btn:hover{
+    transform:translateY(-2px);
+    background:rgba(0,255,255,0.08);
+    color:#00ffee;
+}
+
+.menu-btn.active{
+    background:linear-gradient(135deg,#00ffee,#2563eb);
+    color:#041018;
+    font-weight:800;
+    box-shadow:0 0 25px rgba(0,255,255,0.35);
+}
+
+/* =========================
+   페이지 공통
+========================= */
+
+.page{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    visibility:hidden;
+    transition:0.5s;
+    transform:translateY(20px);
+}
+
+.page.active{
+    opacity:1;
+    visibility:visible;
+    transform:translateY(0);
+}
+
+/* =========================
+   HOME
+========================= */
+
+#homePage{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:120px 60px 60px;
+}
+
+.hero{
+    width:100%;
+    max-width:1450px;
+    display:grid;
+    grid-template-columns:1.2fr 1fr;
+    gap:40px;
+    align-items:center;
+}
+
+.hero-left h2{
+    font-size:72px;
+    line-height:1.05;
+    font-weight:800;
+    margin-bottom:28px;
+}
+
+.gradient{
+    background:linear-gradient(90deg,#00ffee,#60a5fa,#c084fc);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+
+.hero-left p{
+    color:#a9bdd0;
+    font-size:18px;
+    line-height:1.9;
+    max-width:720px;
+}
+
+.hero-buttons{
+    display:flex;
+    gap:18px;
+    margin-top:34px;
+}
+
+.hero-btn{
+    padding:18px 30px;
+    border:none;
+    border-radius:18px;
+    font-weight:700;
+    cursor:pointer;
+    transition:0.25s;
+    font-size:15px;
+}
+
+.primary{
+    background:linear-gradient(135deg,#00ffee,#2563eb);
+    color:#041018;
+    box-shadow:0 10px 30px rgba(0,255,255,0.3);
+}
+
+.secondary{
+    background:rgba(255,255,255,0.06);
+    color:white;
+    border:1px solid rgba(255,255,255,0.08);
+}
+
+.hero-btn:hover{
+    transform:translateY(-3px) scale(1.02);
+}
+
+.hero-right{
+    position:relative;
+    height:620px;
+}
+
+.glass-card{
+    position:absolute;
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.08);
+    backdrop-filter:blur(18px);
+    border-radius:28px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.4);
+}
+
+.card1{
+    inset:20px 100px auto auto;
+    width:280px;
+    height:180px;
+    padding:24px;
+}
+
+.card2{
+    left:20px;
+    top:200px;
+    width:320px;
+    height:220px;
+    padding:26px;
+}
+
+.card3{
+    right:40px;
+    bottom:30px;
+    width:360px;
+    height:220px;
+    padding:26px;
+}
+
+.card-title{
+    color:#00ffee;
+    font-size:13px;
+    letter-spacing:2px;
+    margin-bottom:14px;
+}
+
+.big-number{
+    font-size:54px;
+    font-weight:800;
+}
+
+.card-sub{
+    margin-top:10px;
+    color:#9fb2bf;
+    line-height:1.7;
+}
+
+.orb{
+    position:absolute;
+    border-radius:50%;
+    filter:blur(20px);
+    animation:float 5s ease-in-out infinite;
+}
+
+.orb1{
+    width:220px;
+    height:220px;
+    background:#00ffee;
+    opacity:0.18;
+    top:80px;
+    left:120px;
+}
+
+.orb2{
+    width:300px;
+    height:300px;
+    background:#7c3aed;
+    opacity:0.18;
+    right:0;
+    bottom:40px;
+    animation-delay:1s;
+}
+
+@keyframes float{
+    0%{transform:translateY(0px);}
+    50%{transform:translateY(-18px);}
+    100%{transform:translateY(0px);}
+}
+
+/* =========================
+   섹션 제목
+========================= */
+
+.section-title{
+    position:absolute;
+    top:110px;
+    left:50px;
+    z-index:100;
+}
+
+.section-title h2{
+    font-size:42px;
+    font-weight:800;
+}
+
+.section-title p{
+    color:#9bb0c4;
+    margin-top:10px;
+}
+
+/* =========================
+   Cesium 페이지
+========================= */
+
+#cesiumPage{
+    padding-top:100px;
+}
+
+.cesium-layout{
+    width:100%;
+    height:calc(100vh - 100px);
+    display:flex;
+    gap:24px;
+    padding:30px;
+}
+
+.left-panel{
+    width:320px;
+    background:rgba(255,255,255,0.05);
+    border-radius:28px;
+    border:1px solid rgba(255,255,255,0.08);
+    backdrop-filter:blur(18px);
+    padding:28px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.45);
+}
+
+.status-box{
+    margin-top:25px;
+    padding:22px;
+    border-radius:20px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.06);
+}
+
+.status-box h3{
+    color:#94a3b8;
+    font-size:14px;
+    margin-bottom:14px;
+}
+
+.status-number{
+    font-size:52px;
+    color:#ff5b5b;
+    font-weight:800;
+}
+
+.map-wrapper{
+    flex:1;
+    border-radius:28px;
+    overflow:hidden;
+    position:relative;
+    border:1px solid rgba(255,255,255,0.08);
+    box-shadow:0 25px 60px rgba(0,0,0,0.55);
+}
+
+#cesiumContainer{
+    width:100%;
+    height:100%;
+}
+
+.info-panel{
+    position:absolute;
+    right:24px;
+    top:24px;
+    width:320px;
+    padding:24px;
+    border-radius:22px;
+    background:rgba(10,15,25,0.85);
+    backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,0.08);
+    z-index:10;
+}
+
+.info-panel h3{
+    color:#ff6b6b;
+    margin-bottom:18px;
+}
+
+.analyze-btn{
+    width:100%;
+    margin-top:18px;
+    padding:15px;
+    border:none;
+    border-radius:16px;
+    background:linear-gradient(135deg,#ff5b5b,#ff7b7b);
+    color:white;
+    font-weight:700;
+    cursor:pointer;
+}
+
+/* =========================
+   Three.js 페이지
+========================= */
+
+#threePage{
+    overflow:hidden;
+}
+
+#threeCanvas{
+    width:100%;
+    height:100vh;
+}
+
+.hud{
+    position:absolute;
+    top:110px;
+    left:24px;
+    right:24px;
+    display:flex;
+    justify-content:space-between;
+    z-index:50;
+    pointer-events:none;
+}
+
+.hud-card{
+    min-width:260px;
+    padding:22px;
+    border-radius:22px;
+    background:rgba(10,15,22,0.72);
+    backdrop-filter:blur(18px);
+    border:1px solid rgba(0,255,255,0.12);
+}
+
+.hud-title{
+    color:#00ffee;
+    font-size:13px;
+    letter-spacing:2px;
+    margin-bottom:10px;
+}
+
+.hud-value{
+    font-size:36px;
+    font-weight:800;
+}
+
+.right-panel{
+    position:absolute;
+    top:220px;
+    right:24px;
+    width:320px;
+    z-index:50;
+}
+
+.panel{
+    background:rgba(10,15,22,0.78);
+    border-radius:24px;
+    padding:24px;
+    margin-bottom:20px;
+    border:1px solid rgba(255,255,255,0.08);
+    backdrop-filter:blur(18px);
+}
+
+.progress{
+    height:12px;
+    border-radius:20px;
+    overflow:hidden;
+    margin-top:12px;
+    background:#17202b;
+}
+
+.progress-inner{
+    height:100%;
+    width:40%;
+    background:linear-gradient(90deg,#00ffee,#2563eb);
+}
+
+.warning{
+    margin-top:18px;
+    padding:14px;
+    border-radius:14px;
+    background:rgba(255,80,80,0.15);
+    border:1px solid rgba(255,80,80,0.3);
+    color:#ffd4d4;
+}
+
+.bottom-bar{
+    position:absolute;
+    bottom:28px;
+    left:50%;
+    transform:translateX(-50%);
+    width:820px;
+    display:flex;
+    gap:20px;
+    z-index:50;
+}
+
+.bottom-card{
+    flex:1;
+    padding:24px;
+    border-radius:24px;
+    background:rgba(10,15,22,0.72);
+    border:1px solid rgba(255,255,255,0.08);
+    backdrop-filter:blur(18px);
+}
+
+.speed{
+    font-size:58px;
+    font-weight:800;
+}
+
+.small{
+    margin-top:10px;
+    color:#9fb2bf;
+}
+
+/* =========================
+   반응형
+========================= */
+
+@media(max-width:1200px){
+
+    .hero{
+        grid-template-columns:1fr;
+    }
+
+    .hero-right{
+        display:none;
+    }
+
+    .left-panel{
+        display:none;
+    }
+
+    .bottom-bar{
+        width:95%;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- =========================
+     TOP NAV
+========================= -->
+
+<div class="top-nav">
+
+    <div class="logo-wrap">
+
+        <div class="logo-icon">
+            S
+        </div>
+
+        <div class="logo-text">
+            <h1>SEJONG SMART CITY</h1>
+            <p>AI DIGITAL TWIN PLATFORM</p>
+        </div>
+
+    </div>
+
+    <div class="menu">
+        <button class="menu-btn active" onclick="showPage('homePage',this)">
+            HOME
+        </button>
+
+        <button class="menu-btn" onclick="showPage('cesiumPage',this)">
+            DIGITAL TWIN
+        </button>
+
+        <button class="menu-btn" onclick="showPage('threePage',this)">
+            AI SIMULATION
+        </button>
+    </div>
+
+</div>
+
+<!-- =========================
+     HOME PAGE
+========================= -->
+
+<div class="page active" id="homePage">
+
+    <div class="hero">
+
+        <div class="hero-left">
+
+            <h2>
+                NEXT GENERATION<br>
+                <span class="gradient">
+                    SMART CITY
+                </span><br>
+                DIGITAL TWIN
+            </h2>
+
+            <p>
+                세종대학교 스마트시티 통합 플랫폼은
+                AI 기반 포트홀 탐지, 디지털 트윈 시뮬레이션,
+                실시간 위험 분석, 스마트 모빌리티 관제를
+                하나의 시스템으로 통합한 차세대 도시 플랫폼입니다.
+            </p>
+
+            <div class="hero-buttons">
+
+                <button class="hero-btn primary"
+                    onclick="quickMove('cesiumPage',1)">
+                    디지털 트윈 시작
+                </button>
+
+                <button class="hero-btn secondary"
+                    onclick="quickMove('threePage',2)">
+                    AI 시뮬레이션 보기
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="hero-right">
+
+            <div class="orb orb1"></div>
+            <div class="orb orb2"></div>
+
+            <div class="glass-card card1">
+                <div class="card-title">
+                    AI DETECTED
+                </div>
+
+                <div class="big-number">
+                    17
+                </div>
+
+                <div class="card-sub">
+                    실시간 포트홀 감지 활성화
+                </div>
+            </div>
+
+            <div class="glass-card card2">
+                <div class="card-title">
+                    DIGITAL TWIN
+                </div>
+
+                <div class="big-number">
+                    LIVE
+                </div>
+
+                <div class="card-sub">
+                    세종대학교 캠퍼스 기반
+                    3D 스마트시티 데이터 분석
+                </div>
+            </div>
+
+            <div class="glass-card card3">
+                <div class="card-title">
+                    AI SAFETY SCORE
+                </div>
+
+                <div class="big-number">
+                    96%
+                </div>
+
+                <div class="card-sub">
+                    도로 위험 예측 및
+                    스마트 모빌리티 안정성 분석
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- =========================
+     CESIUM PAGE
+========================= -->
+
+<div class="page" id="cesiumPage">
+
+    <div class="cesium-layout">
+
+        <div class="left-panel">
+
+            <h2 style="font-size:28px;">
+                SMART CITY<br>
+                CONTROL
+            </h2>
+
+            <p style="margin-top:18px;color:#9fb2bf;line-height:1.8;">
+                AI 포트홀 탐지와 실시간 디지털 트윈
+                도로 모니터링 시스템
+            </p>
+
+            <div class="status-box">
+
+                <h3>실시간 감지 현황</h3>
+
+                <div class="status-number">
+                    17
+                </div>
+
+                <p style="margin-top:10px;color:#9fb2bf;">
+                    AI 감지 포트홀 위치
+                </p>
+
+            </div>
+
+        </div>
+
+        <div class="map-wrapper">
+
+            <div id="cesiumContainer"></div>
+
+            <div class="info-panel">
+
+                <h3>⚠ 위험 포트홀 감지</h3>
+
+                <p style="line-height:1.8;color:#dbe7ff;">
+                    세종대학교 인근 도로에서
+                    깊이 15cm 이상의 위험 포트홀이
+                    감지되었습니다.
+                </p>
+
+                <button class="analyze-btn">
+                    정밀 분석 활성화
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- =========================
+     THREE PAGE
+========================= -->
+
+<div class="page" id="threePage">
+
+    <div id="threeCanvas"></div>
+
+    <div class="hud">
+
+        <div class="hud-card">
+
+            <div class="hud-title">
+                AI CITY CONTROL
+            </div>
+
+            <div class="hud-value">
+                ONLINE
+            </div>
+
+        </div>
+
+        <div class="hud-card">
+
+            <div class="hud-title">
+                LIVE GPS
+            </div>
+
+            <div class="hud-value" id="gpsText">
+                0 / 0
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="right-panel">
+
+        <div class="panel">
+
+            <h2 style="margin-bottom:16px;color:#00ffee;">
+                실시간 위험 분석
+            </h2>
+
+            <div style="display:flex;justify-content:space-between;">
+                <span>포트홀 위험도</span>
+                <span id="riskText">40%</span>
+            </div>
+
+            <div class="progress">
+                <div class="progress-inner" id="riskBar"></div>
+            </div>
+
+            <div class="warning">
+                AI Vision Detector 활성화
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="bottom-bar">
+
+        <div class="bottom-card">
+
+            <div style="color:#00ffee;font-size:13px;">
+                SPEED
+            </div>
+
+            <div class="speed">
+                <span id="speedText">0</span> km/h
+            </div>
+
+            <div class="small">
+                AI 스마트 모빌리티 주행
+            </div>
+
+        </div>
+
+        <div class="bottom-card">
+
+            <div style="color:#00ffee;font-size:13px;">
+                CONTROL
+            </div>
+
+            <div class="small">
+                W A S D 로 이동 가능
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+/* =========================
+   메뉴 이동
+========================= */
+
+function showPage(id,el){
+
+    document.querySelectorAll('.page').forEach(page=>{
+        page.classList.remove('active');
+    });
+
+    document.getElementById(id).classList.add('active');
+
+    document.querySelectorAll('.menu-btn').forEach(btn=>{
+        btn.classList.remove('active');
+    });
+
+    el.classList.add('active');
+}
+
+function quickMove(id,index){
+
+    const buttons = document.querySelectorAll('.menu-btn');
+
+    showPage(id,buttons[index]);
+}
+
+/* =========================
+   Cesium
+========================= */
+
+const viewer = new Cesium.Viewer('cesiumContainer',{
+
+    imageryProvider:new Cesium.OpenStreetMapImageryProvider({
+        url:'https://a.tile.openstreetmap.org/'
+    }),
+
+    baseLayerPicker:false,
+    geocoder:false,
+    timeline:false,
+    animation:false,
+    infoBox:false,
+    selectionIndicator:false
+
+});
+
+viewer.camera.flyTo({
+
+    destination:Cesium.Cartesian3.fromDegrees(
+        127.0738,
+        37.5506,
+        1800
+    ),
+
+    duration:2
+
+});
+
+const potholes = [
+
+    [37.549288,127.074169],
+    [37.548772,127.073839],
+    [37.548780,127.073430],
+    [37.548588,127.073352],
+    [37.549319,127.073865],
+    [37.551302,127.075108],
+    [37.551574,127.074732],
+    [37.551437,127.074117],
+    [37.551792,127.073178],
+    [37.551909,127.073146],
+    [37.551942,127.073159],
+    [37.552176,127.073453],
+    [37.552178,127.072845],
+    [37.552663,127.073476],
+    [37.552337,127.074202],
+    [37.551968,127.074448],
+    [37.552801,127.072541]
+
+];
+
+potholes.forEach((coord,index)=>{
+
+    viewer.entities.add({
+
+        position:Cesium.Cartesian3.fromDegrees(
+            coord[1],
+            coord[0]
+        ),
+
+        point:{
+            pixelSize:14,
+            color:Cesium.Color.RED,
+            outlineColor:Cesium.Color.WHITE,
+            outlineWidth:2
+        },
+
+        label:{
+            text:String(index+1),
+            font:'14px sans-serif',
+            fillColor:Cesium.Color.WHITE,
+            verticalOrigin:Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset:new Cesium.Cartesian2(0,-20)
+        }
+
+    });
+
+});
+
+/* =========================
+   THREE.JS
+========================= */
+
+const scene = new THREE.Scene();
+
+scene.background = new THREE.Color(0x081018);
+
+scene.fog = new THREE.FogExp2(0x081018,0.0018);
+
+const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth/window.innerHeight,
+    0.1,
+    4000
+);
+
+camera.position.set(0,2,120);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setSize(window.innerWidth,window.innerHeight);
+
+document.getElementById('threeCanvas')
+.appendChild(renderer.domElement);
+
+/* 조명 */
+
+scene.add(new THREE.AmbientLight(0xffffff,0.6));
+
+const light = new THREE.DirectionalLight(0xffffff,1.4);
+
+light.position.set(200,300,100);
+
+scene.add(light);
+
+/* 바닥 */
+
+const ground = new THREE.Mesh(
+
+    new THREE.PlaneGeometry(5000,5000),
+
+    new THREE.MeshStandardMaterial({
+        color:0x151d29
+    })
+
+);
+
+ground.rotation.x = -Math.PI/2;
+
+scene.add(ground);
+
+/* 도로 */
+
+function makeRoad(x,z,length,rot){
+
+    const road = new THREE.Mesh(
+
+        new THREE.PlaneGeometry(20,length),
+
+        new THREE.MeshStandardMaterial({
+            color:0x303030
+        })
+
+    );
+
+    road.rotation.x = -Math.PI/2;
+
+    road.rotation.z = rot;
+
+    road.position.set(x,0.03,z);
+
+    scene.add(road);
+}
+
+makeRoad(0,0,1400,0);
+makeRoad(0,0,1400,Math.PI/2);
+makeRoad(240,100,900,0.5);
+
+/* 건물 */
+
+for(let i=0;i<180;i++){
+
+    const h = 40 + Math.random()*180;
+
+    const mesh = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            25+Math.random()*40,
+            h,
+            25+Math.random()*40
+        ),
+
+        new THREE.MeshStandardMaterial({
+
+            color:new THREE.Color(
+                0.3+Math.random()*0.3,
+                0.4+Math.random()*0.2,
+                0.5+Math.random()*0.4
+            )
+
+        })
+
+    );
+
+    mesh.position.set(
+
+        (Math.random()-0.5)*2200,
+        h/2,
+        (Math.random()-0.5)*2200
+
+    );
+
+    scene.add(mesh);
+}
+
+/* 포트홀 */
+
+const potholeObjects = [];
+
+for(let i=0;i<16;i++){
+
+    const hole = new THREE.Mesh(
+
+        new THREE.CylinderGeometry(
+            5,
+            5,
+            1,
+            32
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0x050505
+        })
+
+    );
+
+    hole.rotation.x = Math.PI/2;
+
+    hole.position.set(
+
+        (Math.random()-0.5)*1000,
+        0.05,
+        (Math.random()-0.5)*1000
+
+    );
+
+    scene.add(hole);
+
+    potholeObjects.push(hole);
+}
+
+/* 이동 */
+
+let speed = 0;
+
+const keys = {
+    w:false,
+    a:false,
+    s:false,
+    d:false
+};
+
+window.addEventListener('keydown',(e)=>{
+    keys[e.key.toLowerCase()] = true;
+});
+
+window.addEventListener('keyup',(e)=>{
+    keys[e.key.toLowerCase()] = false;
+});
+
+/* 애니메이션 */
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    if(keys.w) speed += 0.03;
+    if(keys.s) speed -= 0.03;
+
+    speed *= 0.96;
+
+    if(keys.a) camera.rotation.y += 0.025;
+    if(keys.d) camera.rotation.y -= 0.025;
+
+    const dir = new THREE.Vector3();
+
+    camera.getWorldDirection(dir);
+
+    dir.y = 0;
+
+    camera.position.x += dir.x * speed;
+    camera.position.z += dir.z * speed;
+
+    document.getElementById('speedText').innerText =
+        Math.abs(Math.floor(speed*45));
+
+    document.getElementById('gpsText').innerText =
+        camera.position.x.toFixed(1)
+        + " / " +
+        camera.position.z.toFixed(1);
+
+    let nearest = 9999;
+
+    potholeObjects.forEach(p=>{
+
+        const d = camera.position.distanceTo(
+            p.position
+        );
+
+        if(d < nearest){
+            nearest = d;
+        }
+    });
+
+    let risk = Math.max(
+        0,
+        Math.min(
+            100,
+            Math.floor((1/(nearest/40))*100)
+        )
+    );
+
+    document.getElementById('riskText').innerText =
+        risk + "%";
+
+    document.getElementById('riskBar').style.width =
+        risk + "%";
+
+    renderer.render(scene,camera);
+}
+
+animate();
+
+/* 리사이즈 */
+
+window.addEventListener('resize',()=>{
+
+    camera.aspect =
+        window.innerWidth/window.innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+});
+
+</script>
+
+</body>
+</html>
