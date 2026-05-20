@@ -4,13 +4,8 @@ from google.colab import drive
 import os
 
 drive.mount('/content/drive')
-base_path = '/content/drive/MyDrive/DL_Project'
-
-from google.colab import drive
-import os
-
-drive.mount('/content/drive')
-base_path = '/content/drive/MyDrive/DL_Project'
+#자신이 데이터셋 저장한 위치 입력
+base_path = ' '
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -42,18 +37,31 @@ class KFoldPotholeDataset(Dataset):
     def __len__(self):
         return len(self.img_paths)
 
+    def _decode_tdisp_to_depth(self, tdisp_rgb):
+        hsv = cv2.cvtColor(tdisp_rgb, cv2.COLOR_RGB2HSV)
+
+        h = hsv[:, :, 0].astype(np.float32)
+        
+        depth = (120.0 - h) / 120.0
+
+        depth = np.clip(depth, 0.0, 1.0)
+        
+        return depth
+
     def __getitem__(self, idx):
         image = np.array(Image.open(self.img_paths[idx]).convert('RGB'))
+        
+        tdisp_rgb = np.array(Image.open(self.tdisp_paths[idx]).convert('RGB'))
 
-        tdisp = np.array(Image.open(self.tdisp_paths[idx]).convert('L'), dtype=np.float32) / 255.0
 
-        # 3. 🌟 Albumentations 마법 적용! (image와 mask를 동시에 똑같이 변형)
+        tdisp_depth = self._decode_tdisp_to_depth(tdisp_rgb)
+
         if self.transform:
-            augmented = self.transform(image=image, mask=tdisp)
+            augmented = self.transform(image=image, mask=tdisp_depth)
             image = augmented['image']
-            tdisp = augmented['mask']
+            tdisp_depth = augmented['mask']
 
-        label_tensor = tdisp.unsqueeze(0)
+        label_tensor = tdisp_depth.unsqueeze(0)
 
         return image, label_tensor
 
@@ -159,32 +167,22 @@ class PotholeUNet(nn.Module):
     
 class EdgeAwareDepthLoss(nn.Module):
     def __init__(self, alpha=0.5):
-        """
-        기본 깊이 오차(L1)와 경계선 오차(Edge)를 함께 계산하는 특수 Loss
-        alpha: 경계선(절벽)을 얼마나 중요하게 채점할지 결정하는 가중치
-        """
         super(EdgeAwareDepthLoss, self).__init__()
         self.l1_loss = nn.L1Loss()
         self.alpha = alpha
 
     def forward(self, pred, target):
-        # 1. 기본 채점: 전체 깊이가 얼마나 비슷한가? (L1 Loss)
         l1 = self.l1_loss(pred, target)
 
-        # 2. 절벽 채점: X축(가로)과 Y축(세로)으로 인접한 픽셀간의 차이를 구함 (Gradient)
-        # 예측한 깊이 지도의 가로/세로 절벽
         pred_dx = torch.abs(pred[:, :, :, :-1] - pred[:, :, :, 1:])
         pred_dy = torch.abs(pred[:, :, :-1, :] - pred[:, :, 1:, :])
 
-        # 정답지(Label)의 가로/세로 절벽
         target_dx = torch.abs(target[:, :, :, :-1] - target[:, :, :, 1:])
         target_dy = torch.abs(target[:, :, :-1, :] - target[:, :, 1:, :])
 
-        # 3. 내가 예측한 절벽의 가파름이 정답지의 절벽과 똑같은가?
         edge_loss = torch.mean(torch.abs(pred_dx - target_dx)) + \
                     torch.mean(torch.abs(pred_dy - target_dy))
 
-        # 4. 최종 점수 = 기본 오차 + (가중치 * 절벽 오차)
         final_loss = l1 + (self.alpha * edge_loss)
 
         return final_loss
