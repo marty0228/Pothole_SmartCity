@@ -114,8 +114,8 @@ preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-#원하는 사진 넣기
-target_image = '/content/drive/MyDrive/DL_Project/test_model6.jpg'
+#원하는 사진 경로 입력
+target_image = ' '
 input_image = Image.open(target_image).convert('RGB')
 input_tensor = preprocess(input_image).unsqueeze(0).to(device)
 
@@ -126,7 +126,8 @@ ensemble_pred = torch.zeros((1, 1, 256, 256)).to(device)
 
 with torch.no_grad():
     for fold in range(1, 6):
-        load_path = f'/content/drive/MyDrive/DL_Project/best_model_fold{fold}.pth'
+        #현재 파일 기준 상대 경로
+        load_path = f'/best_model/best_model_fold{fold}.pth'
         model.load_state_dict(torch.load(load_path))
 
         output = model(input_tensor)
@@ -149,7 +150,7 @@ mask_np = np.array(mask)
 roi_pixels = pred_map[mask_np == 255]
 d_road = np.median(roi_pixels) if roi_pixels.size > 0 else 0.0
 
-yolo_model = YOLO('/content/drive/MyDrive/Pothole_Project/augmented_training/weights/best.pt')
+yolo_model = YOLO('/weights/best.pt')
 detections = yolo_model(target_image, conf=0.25, imgsz=640, iou=0.7, verbose=False)
 
 orig_w, orig_h = input_image.size
@@ -157,7 +158,6 @@ pred_map_resized = cv2.resize(pred_map, (orig_w, orig_h))
 
 final_reports = []
 
-# 5. 좌표 추출 및 깊이 계산
 for result in detections:
     boxes = result.boxes.xyxy.cpu().numpy()
 
@@ -168,7 +168,6 @@ for result in detections:
 
         pothole_region = pred_map_resized[y:y+h, x:x+w]
 
-        # 물리적 깊이 계산 (미터 단위 반환)
         depth_m = calculate_real_depth(d_road, pothole_region)
 
         final_reports.append({
