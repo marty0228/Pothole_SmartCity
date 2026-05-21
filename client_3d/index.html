@@ -100,9 +100,9 @@
     <div id="scooter-handle"></div>
 
     <script>
-        // ==========================================
+        
         // 1. 씬, 카메라, 조명
-        // ==========================================
+  
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xd8aa8c); 
         scene.fog = new THREE.FogExp2(0xd8aa8c, 0.003);
@@ -132,9 +132,9 @@
         baseGround.receiveShadow = true;
         scene.add(baseGround);
 
-        // ==========================================
+
         // 2. 아스팔트 차선 텍스처
-        // ==========================================
+
         function createRoadTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 1024; canvas.height = 1024;
@@ -155,9 +155,9 @@
         }
         const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.9, metalness: 0.1 });
 
-        // ==========================================
+
         // 3. 데이터 컨테이너
-        // ==========================================
+
         const potholeData = [];
         const crackData = [];
         const buildingData = []; 
@@ -171,9 +171,9 @@
             return new THREE.Vector3(x, 0, z);
         }
 
-        // ==========================================
-        // ⭐ 4. OSM 통신 및 도로/건물/파손구역 동적 생성
-        // ==========================================
+
+        // 4. OSM 통신 및 도로/건물/파손구역 동적 생성
+
         async function fetchSejongRoads() {
             const bbox = "37.548,127.070,37.553,127.076";
             const query = `[out:json];(way["highway"](${bbox}););out geom;`;
@@ -211,7 +211,7 @@
                                 camera.lookAt(p2.x, 1.8, p2.z);
                             }
 
-                            // ⭐ 도로망을 따라 대충 캠퍼스 건물들을 절차적(Random)으로 생성
+                            //  도로망을 따라 대충 캠퍼스 건물들을 절차적(Random)으로 생성
                             if (dist > 20) {
                                 let numBuildings = Math.floor(dist / 40); // 40m당 1개꼴로 배치
                                 for(let k=1; k<=numBuildings; k++) {
@@ -285,9 +285,9 @@
             }
         }
 
-        // ==========================================
+        
         // 5. 생성된 건물 데이터를 바탕으로 3D 메쉬 생성
-        // ==========================================
+        
         function spawnBuildings() {
             buildingData.forEach(b => {
                 const bGeo = new THREE.BoxGeometry(b.w, b.h, b.d);
@@ -300,9 +300,9 @@
             });
         }
 
-        // ==========================================
+        
         // 6. 크랙 스티커 로직
-        // ==========================================
+        
         function spawnCrackDecals() {
             const crackGroup = new THREE.Group();
             crackData.forEach(c => {
@@ -337,9 +337,9 @@
 
         fetchSejongRoads();
 
-        // ==========================================
+        
         // 7. 실시간 위치 추적 미니맵 레이더
-        // ==========================================
+        
         const minimapCanvas = document.getElementById('minimap');
         const mCtx = minimapCanvas.getContext('2d');
 
@@ -387,9 +387,8 @@
             mCtx.beginPath(); mCtx.arc(cx, cy, 5, 0, Math.PI * 2); mCtx.fill();
         }
 
-        // ==========================================
-        // ⭐ 8. 킥보드 주행 및 충돌 감지 로직 (A/D 방향 뒤집기 반영)
-        // ==========================================
+        
+        // 8. 킥보드 주행 및 충돌 감지 로직         
         camera.position.set(0, 1.8, 0); 
         const targetPos = new THREE.Vector3(0, 1.8, 0);
         let speed = 0; const maxSpeed = 1.5; const acceleration = 0.03; const friction = 0.94;
@@ -425,9 +424,9 @@
             else if (keys.s) speed = Math.max(speed - acceleration, -maxSpeed);
             else speed *= friction;
 
-            // 🚨 A키와 D키의 회전 방향을 반대로 수정함!
-            if (keys.a) camera.rotation.y -= 0.03; // 원래 += 였음
-            if (keys.d) camera.rotation.y += 0.03; // 원래 -= 였음
+            
+            if (keys.a) camera.rotation.y -= 0.03; 
+            if (keys.d) camera.rotation.y += 0.03; 
 
             const dir = new THREE.Vector3();
             camera.getWorldDirection(dir); dir.y = 0; dir.normalize();

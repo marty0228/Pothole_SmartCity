@@ -7,5 +7,17 @@ datasets/
 runs/
 *.pt
 
+# 모델/가중치 폴더
+weights/
+models/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Windows
+Thumbs.db
+
 # 3. OS 관련 파일
 .DS_Store
