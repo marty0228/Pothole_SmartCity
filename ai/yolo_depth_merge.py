@@ -25,6 +25,25 @@ from albumentations.pytorch import ToTensorV2
 from sklearn.model_selection import KFold
 import glob
 
+import json
+from datetime import datetime
+from scripts.atomic_write import atomic_write
+
+class DoubleConv(nn.Module):
+  def __init__(self, in_channels, out_channels):
+        super(DoubleConv, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+  def forward(self, x):
+      return self.conv(x)
+
 class PotholeUNet(nn.Module):
     def __init__(self):
         super(PotholeUNet, self).__init__()
@@ -126,8 +145,8 @@ ensemble_pred = torch.zeros((1, 1, 256, 256)).to(device)
 
 with torch.no_grad():
     for fold in range(1, 6):
-        #현재 파일 기준 상대 경로
-        load_path = f'/best_model/best_model_fold{fold}.pth'
+        #현재 파일 기준 상대 경로 입력 (밖에 있다고 가정)
+        load_path = f'../best_model/best_model_fold{fold}.pth'
         model.load_state_dict(torch.load(load_path))
 
         output = model(input_tensor)
@@ -150,7 +169,7 @@ mask_np = np.array(mask)
 roi_pixels = pred_map[mask_np == 255]
 d_road = np.median(roi_pixels) if roi_pixels.size > 0 else 0.0
 
-yolo_model = YOLO('/weights/best.pt')
+yolo_model = YOLO('../weights/best.pt')
 detections = yolo_model(target_image, conf=0.25, imgsz=640, iou=0.7, verbose=False)
 
 orig_w, orig_h = input_image.size
@@ -158,27 +177,72 @@ pred_map_resized = cv2.resize(pred_map, (orig_w, orig_h))
 
 final_reports = []
 
+now = datetime.now()
+date_str = now.strftime("%Y%m%d") # 예: 20260521
+iso_time_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
 for result in detections:
     boxes = result.boxes.xyxy.cpu().numpy()
+    confs = result.boxes.conf.cpu().numpy() 
+    class_ids = result.boxes.cls.cpu().numpy()
+    class_names_dict = yolo_model.names 
 
-    for box in boxes:
+    for idx, box in enumerate(boxes):
         x1, y1, x2, y2 = box
+        conf = float(confs[idx]) 
+        
+        cls_id = int(class_ids[idx])
+        raw_type_name = class_names_dict[cls_id] 
+        
+        if raw_type_name.lower() == 'pothole':
+            final_type_name = 'pothole'
+            prefix = 'ph'
+        else:
+            final_type_name = 'crack'
+            prefix = 'cr'
+        
         x, y = int(x1), int(y1)
         w, h = int(x2 - x1), int(y2 - y1)
 
         pothole_region = pred_map_resized[y:y+h, x:x+w]
-
         depth_m = calculate_real_depth(d_road, pothole_region)
 
-        final_reports.append({
-            "location": {"lat": x, "lng": y},
-            "size": {
-                "width_m": w,
-                "height_m": h,
-                "depth_m": round(depth_m, 3)
-            }
-        })
+        pothole_id = f"{prefix}-{date_str}-{str(len(final_reports) + 1).zfill(3)}"
 
-print('최종 결과')
+        report_dict = {
+            "id": pothole_id,
+            "type": final_type_name,
+            "lat": 37.551302, 
+            "lng": 127.075108,
+            "width_m": w,       
+            "length_m": h,      
+            "depth_m": round(depth_m, 3),
+            "confidence": round(conf, 2), 
+            "detected_at": iso_time_str,
+        }
+        
+        final_reports.append(report_dict)
+
+print("\n📊 [최종 앙상블 포트홀 분석 리포트]")
 for report in final_reports:
     print(report)
+
+# atomic write
+# 저장할 파일 경로
+output_file = '../client_3d/result.json'
+
+# 1. 기존 데이터 읽어오기 (파일이 이미 존재할 경우)
+if os.path.exists(output_file):
+    with open(output_file, 'r', encoding='utf-8') as f:
+        try:
+            existing_data = json.load(f)
+        except json.JSONDecodeError:
+            # 파일이 비어있거나 깨졌을 경우 빈 리스트로 시작
+            existing_data = []
+else:
+    # 파일이 아예 없으면 빈 리스트로 시작
+    existing_data = []
+
+existing_data.extend(final_reports)
+out_json = json.dumps(existing_data, ensure_ascii=False, indent=4)
+atomic_write(output_file, out_json)
