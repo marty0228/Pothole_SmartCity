@@ -6,14 +6,11 @@
 
 <title>SEJONG SMART CITY PLATFORM</title>
 
-<!-- Cesium -->
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
 <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
-<!-- Three.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<!-- OrbitControls -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,9 +31,7 @@ body{
     color:white;
 }
 
-/* =========================
-   배경
-========================= */
+/* 배경 */
 
 body::before{
     content:'';
@@ -60,9 +55,7 @@ body::after{
     z-index:-1;
 }
 
-/* =========================
-   상단 네비게이션
-========================= */
+/* 상단 메뉴 */
 
 .top-nav{
     position:fixed;
@@ -144,9 +137,7 @@ body::after{
     box-shadow:0 0 25px rgba(0,255,255,0.35);
 }
 
-/* =========================
-   페이지 공통
-========================= */
+/* 페이지 */
 
 .page{
     position:absolute;
@@ -163,9 +154,7 @@ body::after{
     transform:translateY(0);
 }
 
-/* =========================
-   HOME
-========================= */
+/* 홈 */
 
 #homePage{
     display:flex;
@@ -323,9 +312,7 @@ body::after{
     100%{transform:translateY(0px);}
 }
 
-/* =========================
-   섹션 제목
-========================= */
+/* 섹션 제목 */
 
 .section-title{
     position:absolute;
@@ -344,9 +331,6 @@ body::after{
     margin-top:10px;
 }
 
-/* =========================
-   Cesium 페이지
-========================= */
 
 #cesiumPage{
     padding-top:100px;
@@ -433,11 +417,6 @@ body::after{
     font-weight:700;
     cursor:pointer;
 }
-
-
-/* =========================
-   Three.js OSM Simulation 페이지
-========================= */
 
 #threePage{
     overflow:hidden;
@@ -539,7 +518,7 @@ body::after{
     color:#fff;
 }
 
-/* 중앙 타겟팅 조준점 */
+/* 중앙 조준점 */
 #threePage #reticle{
     position:absolute;
     top:50%;
@@ -618,9 +597,6 @@ body::after{
 #threePage .alert-pothole{background-color:#ff3300;border:3px solid #ffcc00;}
 #threePage .alert-crack{background-color:#ff9900;border:3px solid #ff0000;}
 
-/* =========================
-   반응형
-========================= */
 
 @media(max-width:1200px){
 
@@ -646,9 +622,7 @@ body::after{
 
 <body>
 
-<!-- =========================
-     TOP NAV
-========================= -->
+<!-- 상단 메뉴 -->
 
 <div class="top-nav">
 
@@ -681,9 +655,7 @@ body::after{
 
 </div>
 
-<!-- =========================
-     HOME PAGE
-========================= -->
+<!-- 홈 -->
 
 <div class="page active" id="homePage">
 
@@ -778,9 +750,6 @@ body::after{
 
 </div>
 
-<!-- =========================
-     CESIUM PAGE
-========================= -->
 
 <div class="page" id="cesiumPage">
 
@@ -841,9 +810,6 @@ body::after{
 
 </div>
 
-<!-- =========================
-     THREE PAGE
-========================= -->
 
 <div class="page" id="threePage">
     <iframe
@@ -857,9 +823,7 @@ body::after{
 
 <script>
 
-/* =========================
-   메뉴 이동
-========================= */
+/* 메뉴 이동 */
 
 function showPage(id,el){
 
@@ -888,9 +852,6 @@ if (embeddedFrame) {
     embeddedFrame.src = `./index%EC%9C%84%ED%97%98%EB%8F%84%EC%B6%94%EA%B0%80.html?t=${Date.now()}`;
 }
 
-/* =========================
-   Cesium
-========================= */
 
 const viewer = new Cesium.Viewer('cesiumContainer',{
     imageryProvider:new Cesium.OpenStreetMapImageryProvider({
@@ -913,9 +874,86 @@ viewer.camera.flyTo({
     duration:2
 });
 
-initializeCesiumPotholes();
 
-/* 3D 시뮬레이션은 index위험도추가.html에서만 동작하도록 분리됨 */
+fetch('./result.json')
+.then(response => {
+    if(!response.ok){
+        throw new Error('result(1).json 파일을 불러오지 못했습니다.');
+    }
+    return response.json();
+})
+.then(data => {
+
+    let potholeCount = 0;
+    let crackCount = 0;
+
+    data.forEach((item,index)=>{
+
+        if(item.type === 'pothole'){
+            potholeCount++;
+        }
+        else if(item.type === 'crack'){
+            crackCount++;
+        }
+
+        viewer.entities.add({
+
+            position:Cesium.Cartesian3.fromDegrees(
+                item.lng,
+                item.lat
+            ),
+
+            point:{
+                pixelSize:14,
+
+                color:item.type === 'pothole'
+                    ? Cesium.Color.RED
+                    : Cesium.Color.ORANGE,
+
+                outlineColor:Cesium.Color.WHITE,
+                outlineWidth:2
+            },
+
+            label:{
+                text:item.type === 'pothole'
+                    ? `P-${potholeCount}`
+                    : `C-${crackCount}`,
+
+                font:'14px sans-serif',
+                fillColor:Cesium.Color.WHITE,
+                verticalOrigin:Cesium.VerticalOrigin.BOTTOM,
+                pixelOffset:new Cesium.Cartesian2(0,-20)
+            },
+
+            description:`
+                <b>ID:</b> ${item.id}<br>
+                <b>Type:</b> ${item.type}<br>
+                <b>Latitude:</b> ${item.lat}<br>
+                <b>Longitude:</b> ${item.lng}<br>
+                <b>Depth:</b> ${item.depth_m}m<br>
+                <b>Confidence:</b> ${item.confidence}
+            `
+
+        });
+
+    });
+
+    document.getElementById('homeDetectedCount').innerText = data.length;
+    document.getElementById('homePotholeCount').innerText = potholeCount;
+    document.getElementById('homeCrackCount').innerText = crackCount;
+
+    document.getElementById('cesiumDetectedCount').innerText = data.length;
+    document.getElementById('cesiumPotholeCount').innerText = potholeCount;
+    document.getElementById('cesiumCrackCount').innerText = crackCount;
+
+    console.log('result(1).json 로드 성공:', data);
+
+})
+.catch(error=>{
+    console.error('JSON 로드 실패:', error);
+    alert('result(1).json 파일을 읽어오지 못했습니다. HTML 파일과 JSON 파일이 같은 폴더에 있는지 확인하세요.');
+});
+
 
 </script>
 
