@@ -192,6 +192,7 @@ body::after{
 
 .gradient{
     background:linear-gradient(90deg,#00ffee,#60a5fa,#c084fc);
+    background-clip:text;
     -webkit-background-clip:text;
     -webkit-text-fill-color:transparent;
 }
@@ -454,6 +455,15 @@ body::after{
     display:block;
     width:100%;
     height:100%;
+}
+
+#three-embed-frame{
+    position:absolute;
+    inset:100px 0 0 0;
+    width:100%;
+    height:calc(100vh - 100px);
+    border:none;
+    background:#d8aa8c;
 }
 
 /* 로딩 UI */
@@ -723,11 +733,12 @@ body::after{
                 </div>
 
                 <div class="big-number">
-                    17
+                    <span id="homeDetectedCount">0</span>
                 </div>
 
                 <div class="card-sub">
-                    실시간 포트홀 감지 활성화
+                    실시간 도로 파손 감지 활성화<br>
+                    포트홀 <span id="homePotholeCount">0</span> · 크랙 <span id="homeCrackCount">0</span>
                 </div>
             </div>
 
@@ -792,11 +803,12 @@ body::after{
                 <h3>실시간 감지 현황</h3>
 
                 <div class="status-number">
-                    17
+                    <span id="cesiumDetectedCount">0</span>
                 </div>
 
                 <p style="margin-top:10px;color:#9fb2bf;">
-                    AI 감지 포트홀 위치
+                    AI 감지 도로 파손 위치<br>
+                    포트홀 <span id="cesiumPotholeCount">0</span> · 크랙 <span id="cesiumCrackCount">0</span>
                 </p>
 
             </div>
@@ -809,7 +821,7 @@ body::after{
 
             <div class="info-panel">
 
-                <h3>⚠ 위험 포트홀 감지</h3>
+                <h3>⚠ 위험 도로 파손 감지</h3>
 
                 <p style="line-height:1.8;color:#dbe7ff;">
                     세종대학교 인근 도로에서
@@ -834,41 +846,12 @@ body::after{
 ========================= -->
 
 <div class="page" id="threePage">
-
-    <div id="threeCanvas"></div>
-
-    <div id="loading">
-        📡 세종대 캠퍼스 로드 중...<br>
-        <span style="font-size:14px;color:#aaa;font-weight:normal;">
-            OSM 도로 데이터를 받아와 도로, 건물, 파손 구역을 생성하고 있습니다.
-        </span>
-    </div>
-
-    <div id="alert-box"></div>
-
-    <div id="minimap-container">
-        <div class="minimap-title">SEJONG CAMPUS RADAR</div>
-        <canvas id="minimap" width="250" height="250"></canvas>
-    </div>
-
-    <div id="ui-panel">
-        <h3 style="margin:0 0 15px 0;color:#00ffcc;font-size:16px;">
-            진동 킥보드 관제 모드
-        </h3>
-        <p style="margin:5px 0;font-size:14px;"><span class="key-btn">W</span> 전진 가속</p>
-        <p style="margin:5px 0;font-size:14px;"><span class="key-btn">A</span> <span class="key-btn">D</span> 좌우 핸들</p>
-        <p style="margin:5px 0;font-size:14px;"><span class="key-btn">S</span> 브레이크 및 후진</p>
-    </div>
-
-    <div id="reticle">
-        <div class="reticle-corner tl"></div>
-        <div class="reticle-corner tr"></div>
-        <div class="reticle-corner bl"></div>
-        <div class="reticle-corner br"></div>
-        <div class="dot"></div>
-    </div>
-
-    <div id="scooter-handle"></div>
+    <iframe
+        id="three-embed-frame"
+        src="./index%EC%9C%84%ED%97%98%EB%8F%84%EC%B6%94%EA%B0%80.html"
+        title="세종대 위험도 시뮬레이션"
+        loading="lazy"
+    ></iframe>
 
 </div>
 
@@ -898,6 +881,15 @@ function quickMove(id,index){
     const buttons = document.querySelectorAll('.menu-btn');
 
     showPage(id,buttons[index]);
+}
+
+const USE_INDEX_RISK_IFRAME = true;
+
+if (USE_INDEX_RISK_IFRAME) {
+    const embeddedFrame = document.getElementById('three-embed-frame');
+    if (embeddedFrame) {
+        embeddedFrame.src = `./index%EC%9C%84%ED%97%98%EB%8F%84%EC%B6%94%EA%B0%80.html?t=${Date.now()}`;
+    }
 }
 
 /* =========================
@@ -931,60 +923,155 @@ viewer.camera.flyTo({
 
 });
 
-const potholes = [
+const RESULT_JSON_URL = './result.json';
 
-    [37.549288,127.074169],
-    [37.548772,127.073839],
-    [37.548780,127.073430],
-    [37.548588,127.073352],
-    [37.549319,127.073865],
-    [37.551302,127.075108],
-    [37.551574,127.074732],
-    [37.551437,127.074117],
-    [37.551792,127.073178],
-    [37.551909,127.073146],
-    [37.551942,127.073159],
-    [37.552176,127.073453],
-    [37.552178,127.072845],
-    [37.552663,127.073476],
-    [37.552337,127.074202],
-    [37.551968,127.074448],
-    [37.552801,127.072541]
-
+const fallbackHazards = [
+    { id:'fallback-1', type:'pothole', lat:37.549288, lng:127.074169, width_m:1.3, length_m:1.8, depth_m:0.16, confidence:0.9 },
+    { id:'fallback-2', type:'pothole', lat:37.548772, lng:127.073839, width_m:1.1, length_m:1.5, depth_m:0.12, confidence:0.86 },
+    { id:'fallback-3', type:'crack', lat:37.551302, lng:127.075108, width_m:1.6, length_m:2.0, depth_m:0.2, confidence:0.93 }
 ];
 
-potholes.forEach((coord,index)=>{
+let cesiumPotholeEntities = [];
 
-    viewer.entities.add({
+function clearCesiumPotholeEntities(){
+    cesiumPotholeEntities.forEach(entity => viewer.entities.remove(entity));
+    cesiumPotholeEntities = [];
+}
 
-        position:Cesium.Cartesian3.fromDegrees(
-            coord[1],
-            coord[0]
-        ),
+function renderCesiumPotholes(items){
+    clearCesiumPotholeEntities();
 
-        point:{
-            pixelSize:14,
-            color:Cesium.Color.RED,
-            outlineColor:Cesium.Color.WHITE,
-            outlineWidth:2
-        },
+    items.forEach((item,index)=>{
+        const isCrack = item.type === 'crack';
+        const entity = viewer.entities.add({
+            position:Cesium.Cartesian3.fromDegrees(item.lng, item.lat),
+            point:{
+                pixelSize:14,
+                color:isCrack ? Cesium.Color.ORANGE : Cesium.Color.RED,
+                outlineColor:Cesium.Color.WHITE,
+                outlineWidth:2
+            },
+            label:{
+                text:`${isCrack ? 'C' : 'P'}-${index + 1}`,
+                font:'14px sans-serif',
+                fillColor:Cesium.Color.WHITE,
+                verticalOrigin:Cesium.VerticalOrigin.BOTTOM,
+                pixelOffset:new Cesium.Cartesian2(0,-20)
+            }
+        });
 
-        label:{
-            text:String(index+1),
-            font:'14px sans-serif',
-            fillColor:Cesium.Color.WHITE,
-            verticalOrigin:Cesium.VerticalOrigin.BOTTOM,
-            pixelOffset:new Cesium.Cartesian2(0,-20)
+        cesiumPotholeEntities.push(entity);
+    });
+}
+
+function toNumber(v, fallback = 0){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+}
+
+function clamp(v, min, max){
+    return Math.min(max, Math.max(min, v));
+}
+
+function isValidResultItem(item){
+    if (!item) return false;
+
+    const lat = toNumber(item.lat, NaN);
+    const lng = toNumber(item.lng, NaN);
+    const depth = toNumber(item.depth_m, NaN);
+    const confidence = toNumber(item.confidence, NaN);
+    const type = String(item.type || 'pothole').toLowerCase();
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+    if (!Number.isFinite(depth) || depth < 0) return false;
+    if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) return false;
+    if (type !== 'pothole' && type !== 'crack') return false;
+
+    return true;
+}
+
+function normalizeResultItem(item, index){
+    const type = String(item.type || 'pothole').toLowerCase() === 'crack' ? 'crack' : 'pothole';
+    return {
+        id: String(item.id || `ph-${index + 1}`),
+        type,
+        lat: toNumber(item.lat),
+        lng: toNumber(item.lng),
+        width_m: clamp(toNumber(item.width_m, 1.2), 0.2, 5.0),
+        length_m: clamp(toNumber(item.length_m, 1.2), 0.2, 6.0),
+        depth_m: clamp(toNumber(item.depth_m, 0.12), 0.01, 0.5),
+        confidence: clamp(toNumber(item.confidence, 0.5), 0, 1),
+        detected_at: item.detected_at || null
+    };
+}
+
+async function loadResultJson(){
+    try{
+        const response = await fetch(`${RESULT_JSON_URL}?t=${Date.now()}`, { cache:'no-store' });
+        if(!response.ok){
+            throw new Error(`result.json 요청 실패: ${response.status}`);
         }
 
-    });
+        const json = await response.json();
+        const list = Array.isArray(json) ? json : (Array.isArray(json.items) ? json.items : []);
+        const normalized = list.filter(isValidResultItem).map(normalizeResultItem);
 
-});
+        if(normalized.length === 0){
+            console.warn('result.json에 유효한 포트홀 데이터가 없어 fallback을 사용합니다.');
+            return fallbackHazards;
+        }
+
+        return normalized;
+    }
+    catch(error){
+        console.warn('result.json 로드 실패, fallback 사용:', error.message);
+        return fallbackHazards;
+    }
+}
+
+function summarizeHazardCounts(items){
+    const potholeCount = items.filter(item => item.type === 'pothole').length;
+    const crackCount = items.filter(item => item.type === 'crack').length;
+    return {
+        potholeCount,
+        crackCount,
+        totalCount: potholeCount + crackCount
+    };
+}
+
+function updateDetectedCount(items){
+    const { potholeCount, crackCount, totalCount } = summarizeHazardCounts(items);
+
+    const homeCountEl = document.getElementById('homeDetectedCount');
+    const cesiumCountEl = document.getElementById('cesiumDetectedCount');
+    const homePotholeEl = document.getElementById('homePotholeCount');
+    const homeCrackEl = document.getElementById('homeCrackCount');
+    const cesiumPotholeEl = document.getElementById('cesiumPotholeCount');
+    const cesiumCrackEl = document.getElementById('cesiumCrackCount');
+
+    if (homeCountEl) homeCountEl.textContent = String(totalCount);
+    if (cesiumCountEl) cesiumCountEl.textContent = String(totalCount);
+    if (homePotholeEl) homePotholeEl.textContent = String(potholeCount);
+    if (homeCrackEl) homeCrackEl.textContent = String(crackCount);
+    if (cesiumPotholeEl) cesiumPotholeEl.textContent = String(potholeCount);
+    if (cesiumCrackEl) cesiumCrackEl.textContent = String(crackCount);
+}
+
+async function initializeCesiumPotholes(){
+    const items = await loadResultJson();
+    renderCesiumPotholes(items);
+    updateDetectedCount(items);
+}
+
+initializeCesiumPotholes();
 
 
 /* =========================
    THREE.JS - OSM 기반 3D 시뮬레이션
 ========================= */
+
+if (!USE_INDEX_RISK_IFRAME) {
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xd8aa8c);
@@ -1080,6 +1167,9 @@ const potholeData = [];
 const crackData = [];
 const buildingData = [];
 const roadSegments = [];
+const potholeMarkerGroup = new THREE.Group();
+
+scene.add(potholeMarkerGroup);
 
 let isCameraSet = false;
 
@@ -1094,31 +1184,48 @@ function latLngToXZ(lat,lng){
     return new THREE.Vector3(x,0,z);
 }
 
-/* Cesium 지도에서 쓰는 17개 포트홀 좌표를 Three.js 좌표로 변환 */
-function initializePotholeDataFromMapCoordinates(){
+/* result.json 데이터를 Three.js 좌표계로 변환 */
+async function initializePotholeDataFromResultJson(){
+
+    const resultItems = await loadResultJson();
 
     potholeData.length = 0;
 
-    potholes.forEach((coord,index)=>{
+    resultItems.forEach((item,index)=>{
 
-        const lat = coord[0];
-        const lng = coord[1];
+        const lat = item.lat;
+        const lng = item.lng;
         const pos = latLngToXZ(lat,lng);
 
+        const maxSize = Math.max(item.width_m, item.length_m);
+        const radius = clamp(maxSize * 1.2, 1.2, 5.5);
+
         potholeData.push({
+            id:item.id,
             x:pos.x,
             z:pos.z,
-            r:3.0,
-            depth:0.9,
+            r:radius,
+            depth:item.depth_m * 4.0,
             index:index + 1,
             lat:lat,
-            lng:lng
+            lng:lng,
+            width_m:item.width_m,
+            length_m:item.length_m,
+            depth_m:item.depth_m,
+            confidence:item.confidence,
+            detected_at:item.detected_at
         });
     });
+
+    renderCesiumPotholes(resultItems);
 }
 
 /* 3D 화면에서 포트홀 위치를 검은 원판과 번호로 표시 */
 function spawnPotholeMarkers(){
+
+    while (potholeMarkerGroup.children.length > 0) {
+        potholeMarkerGroup.remove(potholeMarkerGroup.children[0]);
+    }
 
     potholeData.forEach(p=>{
 
@@ -1132,7 +1239,7 @@ function spawnPotholeMarkers(){
 
         holeMarker.rotation.x = -Math.PI/2;
         holeMarker.position.set(p.x,0.11,p.z);
-        scene.add(holeMarker);
+        potholeMarkerGroup.add(holeMarker);
 
         const ring = new THREE.Mesh(
             new THREE.RingGeometry(p.r + 0.4,p.r + 0.75,32),
@@ -1144,7 +1251,7 @@ function spawnPotholeMarkers(){
 
         ring.rotation.x = -Math.PI/2;
         ring.position.set(p.x,0.12,p.z);
-        scene.add(ring);
+        potholeMarkerGroup.add(ring);
     });
 }
 
@@ -1179,7 +1286,7 @@ window.addEventListener('keyup',(e)=>{
 
 async function fetchSejongRoads(){
 
-    initializePotholeDataFromMapCoordinates();
+    await initializePotholeDataFromResultJson();
 
     const bbox = '37.548,127.070,37.553,127.076';
     const query = `[out:json];(way["highway"](${bbox}););out geom;`;
@@ -1664,6 +1771,8 @@ window.addEventListener('resize',()=>{
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth,window.innerHeight);
 });
+
+}
 
 </script>
 

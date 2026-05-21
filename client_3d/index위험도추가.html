@@ -98,6 +98,9 @@
         .risk-low { color: #66ff99; font-weight: bold; }
         .risk-medium { color: #ffcc00; font-weight: bold; }
         .risk-high { color: #ff3333; font-weight: bold; }
+        .risk-type-pothole { color: #ff9955; font-weight: bold; }
+        .risk-type-crack { color: #ff5b5b; font-weight: bold; }
+        .risk-type-none { color: #9aa7b8; font-weight: bold; }
 
 
     </style>
@@ -115,7 +118,8 @@
 
     <div id="risk-panel">
         <h4>AI POTHOLE RISK</h4>
-        <div>가장 가까운 포트홀: <span id="risk-distance">-</span> m</div>
+        <div>가장 가까운 위험체: <span id="risk-distance">-</span> m</div>
+        <div>위험 유형: <span id="risk-type" class="risk-type-none">NONE</span></div>
         <div>위험 점수: <span id="risk-score">0.0</span> / 100</div>
         <div>위험 등급: <span id="risk-level" class="risk-low">LOW</span></div>
     </div>
@@ -236,13 +240,43 @@
             };
         }
 
+        function calculateCrackRisk({ radius, distance, speed }) {
+            const sizeScore = radius * 7;
+
+            let distanceScore = 0;
+            if (distance < 3) distanceScore = 35;
+            else if (distance < 8) distanceScore = 24;
+            else if (distance < 15) distanceScore = 12;
+            else distanceScore = 4;
+
+            const speedScore = Math.abs(speed) * 20;
+
+            let total = sizeScore + distanceScore + speedScore;
+            total = Math.min(100, total);
+
+            let level = "LOW";
+            if (total >= 70) level = "HIGH";
+            else if (total >= 40) level = "MEDIUM";
+
+            return {
+                score: total.toFixed(1),
+                level
+            };
+        }
+
         function getRiskClass(level) {
             if (level === "HIGH") return "risk-high";
             if (level === "MEDIUM") return "risk-medium";
             return "risk-low";
         }
 
-        function getRiskText(level) {
+        function getRiskText(type, level) {
+            if (type === "crack") {
+                if (level === "HIGH") return "🚨 [고위험] 크랙 구간 즉시 감속!";
+                if (level === "MEDIUM") return "⚠️ [중위험] 크랙 구간 접근 중";
+                return "ℹ️ [저위험] 크랙 감지";
+            }
+
             if (level === "HIGH") return "🚨 [고위험] 포트홀 즉시 감속!";
             if (level === "MEDIUM") return "⚠️ [중위험] 포트홀 접근 중";
             return "ℹ️ [저위험] 포트홀 감지";
@@ -482,6 +516,7 @@
         const keys = { w: false, a: false, s: false, d: false };
         const alertBox = document.getElementById('alert-box');
         const riskDistanceEl = document.getElementById('risk-distance');
+        const riskTypeEl = document.getElementById('risk-type');
         const riskScoreEl = document.getElementById('risk-score');
         const riskLevelEl = document.getElementById('risk-level');
 
@@ -492,8 +527,11 @@
             let inPothole = false;
             let inCrack = false;
             let nearestPothole = null;
-            let nearestDistance = Infinity;
-            let nearestRisk = { score: "0.0", level: "LOW" };
+            let nearestPotholeDistance = Infinity;
+            let nearestPotholeRisk = { score: "0.0", level: "LOW" };
+            let nearestCrack = null;
+            let nearestCrackDistance = Infinity;
+            let nearestCrackRisk = { score: "0.0", level: "LOW" };
 
             // 포트홀과 사용자 거리 + 위험도 계산
             for (let p of potholeData) {
@@ -501,10 +539,10 @@
                 const dz = camera.position.z - p.z;
                 const distance = Math.sqrt(dx * dx + dz * dz);
 
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
+                if (distance < nearestPotholeDistance) {
+                    nearestPotholeDistance = distance;
                     nearestPothole = p;
-                    nearestRisk = calculatePotholeRisk({
+                    nearestPotholeRisk = calculatePotholeRisk({
                         width: p.width ?? p.r * 2,
                         length: p.length ?? p.r * 2,
                         depth: p.depth ?? 0.2,
@@ -518,42 +556,77 @@
                 }
             }
 
-            // 위험도 패널 갱신
-            if (nearestPothole) {
-                riskDistanceEl.innerText = nearestDistance.toFixed(1);
-                riskScoreEl.innerText = nearestRisk.score;
-                riskLevelEl.innerText = nearestRisk.level;
-                riskLevelEl.className = getRiskClass(nearestRisk.level);
-            }
+            for (let c of crackData) {
+                const dx = camera.position.x - c.x;
+                const dz = camera.position.z - c.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
 
-            // 크랙 충돌 감지
-            if (!inPothole) {
-                for (let c of crackData) {
-                    const dx = camera.position.x - c.x;
-                    const dz = camera.position.z - c.z;
-                    if (Math.sqrt(dx * dx + dz * dz) < c.r) {
-                        inCrack = true;
-                        break;
-                    }
+                if (distance < nearestCrackDistance) {
+                    nearestCrackDistance = distance;
+                    nearestCrack = c;
+                    nearestCrackRisk = calculateCrackRisk({
+                        radius: c.r,
+                        distance,
+                        speed
+                    });
+                }
+
+                if (distance < c.r) {
+                    inCrack = true;
                 }
             }
 
-            // 포트홀 반경 안에 있거나, 20m 이내 중/고위험이면 경고 표시
+            const potholeScore = Number(nearestPotholeRisk.score);
+            const crackScore = Number(nearestCrackRisk.score);
+
+            const potholeNear = nearestPothole && nearestPotholeDistance < 20;
+            const crackNear = nearestCrack && nearestCrackDistance < 15;
+
+            const dominantIsPothole = potholeNear && (!crackNear || potholeScore >= crackScore);
+            const dominantType = dominantIsPothole ? "pothole" : (crackNear ? "crack" : null);
+            const dominantRisk = dominantIsPothole ? nearestPotholeRisk : nearestCrackRisk;
+            const dominantDistance = dominantIsPothole ? nearestPotholeDistance : nearestCrackDistance;
+
+            // 위험도 패널 갱신
+            if (dominantType) {
+                riskDistanceEl.innerText = dominantDistance.toFixed(1);
+                riskTypeEl.innerText = dominantType === 'pothole' ? 'POTHOLE' : 'CRACK';
+                riskTypeEl.className = dominantType === 'pothole' ? 'risk-type-pothole' : 'risk-type-crack';
+                riskScoreEl.innerText = dominantRisk.score;
+                riskLevelEl.innerText = dominantRisk.level;
+                riskLevelEl.className = getRiskClass(dominantRisk.level);
+            } else {
+                riskDistanceEl.innerText = '-';
+                riskTypeEl.innerText = 'NONE';
+                riskTypeEl.className = 'risk-type-none';
+                riskScoreEl.innerText = '0.0';
+                riskLevelEl.innerText = 'LOW';
+                riskLevelEl.className = getRiskClass('LOW');
+            }
+
+            // 포트홀/크랙 중 더 위험한 대상 기준으로 경고 표시
             const isNearDangerousPothole =
                 nearestPothole &&
-                nearestDistance < 20 &&
-                (nearestRisk.level === "HIGH" || nearestRisk.level === "MEDIUM");
+                nearestPotholeDistance < 20 &&
+                (nearestPotholeRisk.level === "HIGH" || nearestPotholeRisk.level === "MEDIUM");
 
-            if (inPothole || isNearDangerousPothole) {
+            const isNearDangerousCrack =
+                nearestCrack &&
+                nearestCrackDistance < 15 &&
+                (nearestCrackRisk.level === "HIGH" || nearestCrackRisk.level === "MEDIUM");
+
+            if (inPothole || (isNearDangerousPothole && dominantType === "pothole")) {
                 alertBox.style.display = 'block';
                 alertBox.className = 'alert-pothole';
                 alertBox.innerHTML =
-                    `${getRiskText(nearestRisk.level)}<br>` +
-                    `위험도 ${nearestRisk.score} / 100 · 거리 ${nearestDistance.toFixed(1)}m`;
-            } else if (inCrack) {
+                    `${getRiskText("pothole", nearestPotholeRisk.level)}<br>` +
+                    `위험도 ${nearestPotholeRisk.score} / 100 · 거리 ${nearestPotholeDistance.toFixed(1)}m`;
+            } else if (inCrack || (isNearDangerousCrack && dominantType === "crack")) {
                 alertBox.style.display = 'block';
                 alertBox.className = 'alert-crack';
-                alertBox.innerText = '⚠️ [주의] 크랙 구역 통과 중 ⚠️';
+                alertBox.innerHTML =
+                    `${getRiskText("crack", nearestCrackRisk.level)}<br>` +
+                    `위험도 ${nearestCrackRisk.score} / 100 · 거리 ${nearestCrackDistance.toFixed(1)}m`;
             } else {
                 alertBox.style.display = 'none';
             }
