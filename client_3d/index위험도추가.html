@@ -241,7 +241,7 @@
             const dist = start.distanceTo(end);
             if (dist < 1) return;
 
-            const roadGeo = new THREE.PlaneGeometry(width, dist, 24, Math.max(6, Math.floor(dist / 3)));
+            const roadGeo = new THREE.PlaneGeometry(width, dist, 48, Math.max(12, Math.floor(dist)));
             const roadMesh = new THREE.Mesh(roadGeo, roadMat);
             const mid = start.clone().lerp(end, 0.5);
 
@@ -263,8 +263,10 @@
                     if (pDist < p.r) {
                         const normalizedDist = pDist / p.r;
                         const depthFalloff = Math.cos(normalizedDist * (Math.PI / 2));
-                        v.y -= (p.depth * depthFalloff) + (Math.random() * 0.03);
-                    }
+    
+                 // 기본 depth_m(예: 0.2)에 6배~8배 가중치를 곱해 3D 공간상에서 확실하게 파이도록 표현
+                 v.y -= (p.depth * 7.0 * depthFalloff) + (Math.random() * 0.02);
+}
                 }
                 roadMesh.worldToLocal(v);
                 positions.setXYZ(j, v.x, v.y, v.z);
@@ -351,26 +353,29 @@
         }
 
         async function initSejongSmartCity() {
-            try {
-                const items = await loadResultJson();
-                seedHazards(items);
-            } catch(e) {
-                console.error("데이터 로드 심각한 예외 발생:", e);
-            }
+    // 1. 먼저 result.json 데이터를 완전히 받아올 때까지 기다립니다 (엄격한 블로킹)
+    const items = await loadResultJson();
+    
+    // 2. 받아온 데이터를 글로벌 potholeData, crackData 배열에 완벽히 채워 넣습니다.
+    seedHazards(items);
+    
+    console.log("AI 데이터 바인딩 완료. 포트홀 개수:", potholeData.length);
 
-            // 도로 및 지형 빌드 무조건 보장 실행
-            campusRoadPaths.forEach(path => {
-                for (let index = 0; index < path.points.length - 1; index++) {
-                    addRoadStrip(path.points[index], path.points[index + 1], path.width);
-                }
-            });
-
-            spawnCampusLandmarks();
-            spawnCrackDecals();
-            
-            // UI 스크린 블록 해제
-            document.getElementById('loading').style.display = 'none';
+    // 3. 데이터가 확실히 존재하는 상태에서 도로 메쉬 생성을 시작합니다.
+    // 이제 addRoadStrip 내부의 버텍스 연산(v.y -= ...)이 100% 정상 작동합니다.
+    campusRoadPaths.forEach(path => {
+        for (let index = 0; index < path.points.length - 1; index++) {
+            addRoadStrip(path.points[index], path.points[index + 1], path.width);
         }
+    });
+
+    // 4. 나머지 캠퍼스 건물 및 크랙 스티커 배치
+    spawnCampusLandmarks();
+    spawnCrackDecals();
+    
+    // 5. 모든 3D 연산이 끝나면 로딩 스크린을 제거합니다.
+    document.getElementById('loading').style.display = 'none';
+}
 
         function spawnCampusLandmarks() {
             const landmarkList = document.getElementById('landmark-list');
