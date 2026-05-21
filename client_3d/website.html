@@ -1,525 +1,923 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>세종대 스마트시티 - 리얼 3D 뎁스 관제 시뮬레이션</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #7f8993; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        
-        /* 로딩 UI */
-        #loading {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #fff; background: rgba(0,0,0,0.85); padding: 30px 50px; 
-            border-radius: 12px; font-size: 20px; font-weight: bold; z-index: 100;
-            border: 2px solid #00ffcc; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        
-        /* 미니맵 레이더 */
-        #minimap-container {
-            position: absolute; top: 20px; right: 20px; width: 280px; height: 280px;
-            background: rgba(10, 15, 20, 0.95); border: 2px solid #00ffcc; border-radius: 12px; 
-            z-index: 10; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-        }
-        #minimap { width: 100%; height: 100%; }
-        .minimap-title { position: absolute; top: 8px; left: 12px; color: #00ffcc; font-size: 11px; font-weight: bold; letter-spacing: 1px;}
-        
-        /* 좌측 하단 UI */
-        #ui-panel {
-            position: absolute; bottom: 30px; left: 30px; color: #eee;
-            background: rgba(10, 15, 20, 0.9); padding: 25px; border-radius: 12px; z-index: 10;
-            border-left: 4px solid #00ffcc; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-        }
-        .key-btn { display: inline-block; background: #222; padding: 8px 14px; border-radius: 6px; margin: 4px; font-weight: bold; border: 1px solid #444; color: #fff; }
-        
-        /* 중앙 타겟팅 조준점 */
-        #reticle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; z-index: 10; pointer-events: none; }
-        .reticle-corner { position: absolute; width: 20px; height: 20px; border: 3px solid #00ffcc; }
-        .tl { top: 0; left: 0; border-right: none; border-bottom: none; }
-        .tr { top: 0; right: 0; border-left: none; border-bottom: none; }
-        .bl { bottom: 0; left: 0; border-right: none; border-top: none; }
-        .br { bottom: 0; right: 0; border-left: none; border-top: none; }
-        .dot { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background-color: #ff0033; border-radius: 50%; box-shadow: 0 0 12px #ff0033; }
-        
-        /* 킥보드 핸들 */
-        #scooter-handle {
-            position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%); width: 400px; height: 180px; z-index: 5; pointer-events: none;
-            background: linear-gradient(to bottom, #111 25%, transparent 25%), linear-gradient(to right, transparent 46%, #1a1a1a 46%, #1a1a1a 54%, transparent 54%);
-            background-size: 100% 25px, 100% 100%; background-repeat: no-repeat;
-            filter: drop-shadow(0 -10px 15px rgba(0,0,0,0.5));
-        }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-        /* 실시간 경고 알림창 UI */
-        #alert-box {
-            position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
-            padding: 15px 40px; border-radius: 8px; font-size: 22px; font-weight: bold;
-            color: white; text-align: center; z-index: 50; display: none;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5); animation: blink 0.5s infinite alternate;
-        }
-        @keyframes blink { from { opacity: 1; } to { opacity: 0.7; } }
-        .alert-pothole { background-color: #ff3300; border: 3px solid #ffcc00; }
-        .alert-crack { background-color: #ff9900; border: 3px solid #ff0000; }
+<title>SEJONG SMART CITY PLATFORM</title>
 
-        /* 포트홀 위험도 표시 패널 */
-        #risk-panel {
-            position: absolute; top: 330px; right: 20px; width: 250px;
-            background: rgba(10, 15, 20, 0.9); color: #eee; border: 2px solid #00ffcc;
-            border-radius: 12px; padding: 14px; z-index: 10; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-            font-size: 13px; line-height: 1.5;
-        }
-        #risk-panel h4 { margin: 0 0 8px 0; color: #00ffcc; font-size: 13px; letter-spacing: 0.5px; }
-        .risk-low { color: #66ff99; font-weight: bold; }
-        .risk-medium { color: #ffcc00; font-weight: bold; }
-        .risk-high { color: #ff3333; font-weight: bold; }
-        .risk-type-pothole { color: #ff9955; font-weight: bold; }
-        .risk-type-crack { color: #ff5b5b; font-weight: bold; }
-        .risk-type-none { color: #9aa7b8; font-weight: bold; }
+<!-- Cesium -->
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
-        .landmark-title { margin-top: 14px; color: #00ffcc; font-size: 13px; font-weight: bold; }
-        .landmark-list { margin-top: 8px; padding-left: 18px; color: #dcecff; font-size: 12px; line-height: 1.45; max-height: 150px; overflow-y: auto; }
-    </style>
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<!-- OrbitControls -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    overflow:hidden;
+    font-family:'Pretendard',sans-serif;
+    background:#050816;
+    color:white;
+}
+
+/* =========================
+   배경
+========================= */
+
+body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    background:
+    radial-gradient(circle at top left,#1e3a8a 0%,transparent 30%),
+    radial-gradient(circle at bottom right,#0ea5e9 0%,transparent 25%),
+    linear-gradient(135deg,#020617,#08111f,#050816);
+    z-index:-2;
+}
+
+body::after{
+    content:'';
+    position:fixed;
+    inset:0;
+    background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size:40px 40px;
+    z-index:-1;
+}
+
+/* =========================
+   상단 네비게이션
+========================= */
+
+.top-nav{
+    position:fixed;
+    top:20px;
+    left:50%;
+    transform:translateX(-50%);
+    width:92%;
+    height:74px;
+    background:rgba(10,15,25,0.72);
+    backdrop-filter:blur(20px);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:22px;
+    z-index:999;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 26px;
+    box-shadow:0 15px 45px rgba(0,0,0,0.45);
+}
+
+.logo-wrap{
+    display:flex;
+    align-items:center;
+    gap:14px;
+}
+
+.logo-icon{
+    width:48px;
+    height:48px;
+    border-radius:16px;
+    background:linear-gradient(135deg,#00ffee,#2563eb);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:800;
+    color:#001018;
+    font-size:20px;
+    box-shadow:0 0 25px rgba(0,255,238,0.4);
+}
+
+.logo-text h1{
+    font-size:20px;
+    font-weight:800;
+}
+
+.logo-text p{
+    font-size:12px;
+    color:#8ca3b8;
+    margin-top:2px;
+}
+
+.menu{
+    display:flex;
+    gap:14px;
+}
+
+.menu-btn{
+    border:none;
+    background:rgba(255,255,255,0.04);
+    color:#cfe4ff;
+    padding:14px 22px;
+    border-radius:14px;
+    cursor:pointer;
+    font-weight:600;
+    transition:0.25s;
+    border:1px solid rgba(255,255,255,0.05);
+}
+
+.menu-btn:hover{
+    transform:translateY(-2px);
+    background:rgba(0,255,255,0.08);
+    color:#00ffee;
+}
+
+.menu-btn.active{
+    background:linear-gradient(135deg,#00ffee,#2563eb);
+    color:#041018;
+    font-weight:800;
+    box-shadow:0 0 25px rgba(0,255,255,0.35);
+}
+
+/* =========================
+   페이지 공통
+========================= */
+
+.page{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    visibility:hidden;
+    transition:0.5s;
+    transform:translateY(20px);
+}
+
+.page.active{
+    opacity:1;
+    visibility:visible;
+    transform:translateY(0);
+}
+
+/* =========================
+   HOME
+========================= */
+
+#homePage{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:120px 60px 60px;
+}
+
+.hero{
+    width:100%;
+    max-width:1450px;
+    display:grid;
+    grid-template-columns:1.2fr 1fr;
+    gap:40px;
+    align-items:center;
+}
+
+.hero-left h2{
+    font-size:72px;
+    line-height:1.05;
+    font-weight:800;
+    margin-bottom:28px;
+}
+
+.gradient{
+    background:linear-gradient(90deg,#00ffee,#60a5fa,#c084fc);
+    background-clip:text;
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+
+.hero-left p{
+    color:#a9bdd0;
+    font-size:18px;
+    line-height:1.9;
+    max-width:720px;
+}
+
+.hero-buttons{
+    display:flex;
+    gap:18px;
+    margin-top:34px;
+}
+
+.hero-btn{
+    padding:18px 30px;
+    border:none;
+    border-radius:18px;
+    font-weight:700;
+    cursor:pointer;
+    transition:0.25s;
+    font-size:15px;
+}
+
+.primary{
+    background:linear-gradient(135deg,#00ffee,#2563eb);
+    color:#041018;
+    box-shadow:0 10px 30px rgba(0,255,255,0.3);
+}
+
+.secondary{
+    background:rgba(255,255,255,0.06);
+    color:white;
+    border:1px solid rgba(255,255,255,0.08);
+}
+
+.hero-btn:hover{
+    transform:translateY(-3px) scale(1.02);
+}
+
+.hero-right{
+    position:relative;
+    height:620px;
+}
+
+.glass-card{
+    position:absolute;
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.08);
+    backdrop-filter:blur(18px);
+    border-radius:28px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.4);
+}
+
+.card1{
+    inset:20px 100px auto auto;
+    width:280px;
+    height:180px;
+    padding:24px;
+}
+
+.card2{
+    left:20px;
+    top:200px;
+    width:320px;
+    height:220px;
+    padding:26px;
+}
+
+.card3{
+    right:40px;
+    bottom:30px;
+    width:360px;
+    height:220px;
+    padding:26px;
+}
+
+.card-title{
+    color:#00ffee;
+    font-size:13px;
+    letter-spacing:2px;
+    margin-bottom:14px;
+}
+
+.big-number{
+    font-size:54px;
+    font-weight:800;
+}
+
+.card-sub{
+    margin-top:10px;
+    color:#9fb2bf;
+    line-height:1.7;
+}
+
+.orb{
+    position:absolute;
+    border-radius:50%;
+    filter:blur(20px);
+    animation:float 5s ease-in-out infinite;
+}
+
+.orb1{
+    width:220px;
+    height:220px;
+    background:#00ffee;
+    opacity:0.18;
+    top:80px;
+    left:120px;
+}
+
+.orb2{
+    width:300px;
+    height:300px;
+    background:#7c3aed;
+    opacity:0.18;
+    right:0;
+    bottom:40px;
+    animation-delay:1s;
+}
+
+@keyframes float{
+    0%{transform:translateY(0px);}
+    50%{transform:translateY(-18px);}
+    100%{transform:translateY(0px);}
+}
+
+/* =========================
+   섹션 제목
+========================= */
+
+.section-title{
+    position:absolute;
+    top:110px;
+    left:50px;
+    z-index:100;
+}
+
+.section-title h2{
+    font-size:42px;
+    font-weight:800;
+}
+
+.section-title p{
+    color:#9bb0c4;
+    margin-top:10px;
+}
+
+/* =========================
+   Cesium 페이지
+========================= */
+
+#cesiumPage{
+    padding-top:100px;
+}
+
+.cesium-layout{
+    width:100%;
+    height:calc(100vh - 100px);
+    display:flex;
+    gap:24px;
+    padding:30px;
+}
+
+.left-panel{
+    width:320px;
+    background:rgba(255,255,255,0.05);
+    border-radius:28px;
+    border:1px solid rgba(255,255,255,0.08);
+    backdrop-filter:blur(18px);
+    padding:28px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.45);
+}
+
+.status-box{
+    margin-top:25px;
+    padding:22px;
+    border-radius:20px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.06);
+}
+
+.status-box h3{
+    color:#94a3b8;
+    font-size:14px;
+    margin-bottom:14px;
+}
+
+.status-number{
+    font-size:52px;
+    color:#ff5b5b;
+    font-weight:800;
+}
+
+.map-wrapper{
+    flex:1;
+    border-radius:28px;
+    overflow:hidden;
+    position:relative;
+    border:1px solid rgba(255,255,255,0.08);
+    box-shadow:0 25px 60px rgba(0,0,0,0.55);
+}
+
+#cesiumContainer{
+    width:100%;
+    height:100%;
+}
+
+.info-panel{
+    position:absolute;
+    right:24px;
+    top:24px;
+    width:320px;
+    padding:24px;
+    border-radius:22px;
+    background:rgba(10,15,25,0.85);
+    backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,0.08);
+    z-index:10;
+}
+
+.info-panel h3{
+    color:#ff6b6b;
+    margin-bottom:18px;
+}
+
+.analyze-btn{
+    width:100%;
+    margin-top:18px;
+    padding:15px;
+    border:none;
+    border-radius:16px;
+    background:linear-gradient(135deg,#ff5b5b,#ff7b7b);
+    color:white;
+    font-weight:700;
+    cursor:pointer;
+}
+
+
+/* =========================
+   Three.js OSM Simulation 페이지
+========================= */
+
+#threePage{
+    overflow:hidden;
+    background:#d8aa8c;
+}
+
+#threeCanvas{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100vh;
+}
+
+#threeCanvas canvas{
+    display:block;
+    width:100%;
+    height:100%;
+}
+
+#three-embed-frame{
+    position:absolute;
+    inset:100px 0 0 0;
+    width:100%;
+    height:calc(100vh - 100px);
+    border:none;
+    background:#d8aa8c;
+}
+
+/* 로딩 UI */
+#threePage #loading{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    color:#fff;
+    background:rgba(0,0,0,0.85);
+    padding:30px 50px;
+    border-radius:12px;
+    font-size:20px;
+    font-weight:bold;
+    z-index:80;
+    border:2px solid #00ffcc;
+    text-align:center;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* 미니맵 레이더 */
+#threePage #minimap-container{
+    position:absolute;
+    top:110px;
+    right:24px;
+    width:250px;
+    height:250px;
+    background:rgba(15,20,25,0.9);
+    border:2px solid #00ffcc;
+    border-radius:12px;
+    z-index:60;
+    overflow:hidden;
+    box-shadow:0 8px 20px rgba(0,0,0,0.6);
+}
+
+#threePage #minimap{
+    width:100%;
+    height:100%;
+}
+
+#threePage .minimap-title{
+    position:absolute;
+    top:8px;
+    left:12px;
+    color:#00ffcc;
+    font-size:11px;
+    font-weight:bold;
+    letter-spacing:1px;
+}
+
+/* 좌측 하단 UI */
+#threePage #ui-panel{
+    position:absolute;
+    bottom:30px;
+    left:30px;
+    color:#eee;
+    background:rgba(10,15,20,0.9);
+    padding:25px;
+    border-radius:12px;
+    z-index:60;
+    border-left:4px solid #00ffcc;
+    box-shadow:0 8px 20px rgba(0,0,0,0.6);
+}
+
+#threePage .key-btn{
+    display:inline-block;
+    background:#222;
+    padding:8px 14px;
+    border-radius:6px;
+    margin:4px;
+    font-weight:bold;
+    border:1px solid #444;
+    color:#fff;
+}
+
+/* 중앙 타겟팅 조준점 */
+#threePage #reticle{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:80px;
+    height:80px;
+    z-index:60;
+    pointer-events:none;
+}
+
+#threePage .reticle-corner{
+    position:absolute;
+    width:20px;
+    height:20px;
+    border:3px solid #00ffcc;
+}
+
+#threePage .tl{top:0;left:0;border-right:none;border-bottom:none;}
+#threePage .tr{top:0;right:0;border-left:none;border-bottom:none;}
+#threePage .bl{bottom:0;left:0;border-right:none;border-top:none;}
+#threePage .br{bottom:0;right:0;border-left:none;border-top:none;}
+
+#threePage .dot{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:8px;
+    height:8px;
+    background-color:#ff0033;
+    border-radius:50%;
+    box-shadow:0 0 12px #ff0033;
+}
+
+/* 킥보드 핸들 */
+#threePage #scooter-handle{
+    position:absolute;
+    bottom:-30px;
+    left:50%;
+    transform:translateX(-50%);
+    width:400px;
+    height:180px;
+    z-index:55;
+    pointer-events:none;
+    background:linear-gradient(to bottom,#111 25%,transparent 25%),
+               linear-gradient(to right,transparent 46%,#1a1a1a 46%,#1a1a1a 54%,transparent 54%);
+    background-size:100% 25px,100% 100%;
+    background-repeat:no-repeat;
+    filter:drop-shadow(0 -10px 15px rgba(0,0,0,0.5));
+}
+
+/* 실시간 경고 알림창 UI */
+#threePage #alert-box{
+    position:absolute;
+    top:110px;
+    left:50%;
+    transform:translateX(-50%);
+    padding:15px 40px;
+    border-radius:8px;
+    font-size:22px;
+    font-weight:bold;
+    color:white;
+    text-align:center;
+    z-index:90;
+    display:none;
+    box-shadow:0 5px 15px rgba(0,0,0,0.5);
+    animation:blink 0.5s infinite alternate;
+}
+
+@keyframes blink{
+    from{opacity:1;}
+    to{opacity:0.7;}
+}
+
+#threePage .alert-pothole{background-color:#ff3300;border:3px solid #ffcc00;}
+#threePage .alert-crack{background-color:#ff9900;border:3px solid #ff0000;}
+
+/* =========================
+   반응형
+========================= */
+
+@media(max-width:1200px){
+
+    .hero{
+        grid-template-columns:1fr;
+    }
+
+    .hero-right{
+        display:none;
+    }
+
+    .left-panel{
+        display:none;
+    }
+
+    .bottom-bar{
+        width:95%;
+    }
+}
+
+</style>
 </head>
+
 <body>
 
-    <div id="loading">📡 세종대 캠퍼스 로드 중...<br><span style="font-size:14px; color:#aaa; font-weight:normal;">어린이대공원역 정문 기준 방위각 캘리브레이션을 완료 중입니다.</span></div>
-    
-    <div id="alert-box"></div>
+<!-- =========================
+     TOP NAV
+========================= -->
 
-    <div id="minimap-container">
-        <div class="minimap-title">SEJONG CAMPUS RADAR</div>
-        <canvas id="minimap" width="280" height="280"></canvas>
+<div class="top-nav">
+
+    <div class="logo-wrap">
+
+        <div class="logo-icon">
+            S
+        </div>
+
+        <div class="logo-text">
+            <h1>SEJONG SMART CITY</h1>
+            <p>AI DIGITAL TWIN PLATFORM</p>
+        </div>
+
     </div>
 
-    <div id="risk-panel">
-        <h4>AI POTHOLE RISK</h4>
-        <div>가장 가까운 위험체: <span id="risk-distance">-</span> m</div>
-        <div>위험 유형: <span id="risk-type" class="risk-type-none">NONE</span></div>
-        <div>위험 점수: <span id="risk-score">0.0</span> / 100</div>
-        <div>위험 등급: <span id="risk-level" class="risk-low">LOW</span></div>
+    <div class="menu">
+        <button class="menu-btn active" onclick="showPage('homePage',this)">
+            HOME
+        </button>
+
+        <button class="menu-btn" onclick="showPage('cesiumPage',this)">
+            DIGITAL TWIN
+        </button>
+
+        <button class="menu-btn" onclick="showPage('threePage',this)">
+            AI SIMULATION
+        </button>
     </div>
 
-    <div id="ui-panel">
-        <h3 style="margin: 0 0 15px 0; color: #00ffcc; font-size: 16px;">진동 킥보드 관제 모드</h3>
-        <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">W</span> 전진 가속</p>
-        <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">A</span> <span class="key-btn">D</span> 좌우 핸들</p>
-        <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">S</span> 브레이크 및 후진</p>
-        <div class="landmark-title">세종대 주요 건물</div>
-        <ul class="landmark-list" id="landmark-list"></ul>
+</div>
+
+<!-- =========================
+     HOME PAGE
+========================= -->
+
+<div class="page active" id="homePage">
+
+    <div class="hero">
+
+        <div class="hero-left">
+
+            <h2>
+                NEXT GENERATION<br>
+                <span class="gradient">
+                    SMART CITY
+                </span><br>
+                DIGITAL TWIN
+            </h2>
+
+            <p>
+                세종대학교 스마트시티 통합 플랫폼은
+                AI 기반 포트홀 탐지, 디지털 트윈 시뮬레이션,
+                실시간 위험 분석, 스마트 모빌리티 관제를
+                하나의 시스템으로 통합한 차세대 도시 플랫폼입니다.
+            </p>
+
+            <div class="hero-buttons">
+
+                <button class="hero-btn primary"
+                    onclick="quickMove('cesiumPage',1)">
+                    디지털 트윈 시작
+                </button>
+
+                <button class="hero-btn secondary"
+                    onclick="quickMove('threePage',2)">
+                    AI 시뮬레이션 보기
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="hero-right">
+
+            <div class="orb orb1"></div>
+            <div class="orb orb2"></div>
+
+            <div class="glass-card card1">
+                <div class="card-title">
+                    AI DETECTED
+                </div>
+
+                <div class="big-number">
+                    <span id="homeDetectedCount">0</span>
+                </div>
+
+                <div class="card-sub">
+                    실시간 도로 파손 감지 활성화<br>
+                    포트홀 <span id="homePotholeCount">0</span> · 크랙 <span id="homeCrackCount">0</span>
+                </div>
+            </div>
+
+            <div class="glass-card card2">
+                <div class="card-title">
+                    DIGITAL TWIN
+                </div>
+
+                <div class="big-number">
+                    LIVE
+                </div>
+
+                <div class="card-sub">
+                    세종대학교 캠퍼스 기반
+                    3D 스마트시티 데이터 분석
+                </div>
+            </div>
+
+            <div class="glass-card card3">
+                <div class="card-title">
+                    AI SAFETY SCORE
+                </div>
+
+                <div class="big-number">
+                    96%
+                </div>
+
+                <div class="card-sub">
+                    도로 위험 예측 및
+                    스마트 모빌리티 안정성 분석
+                </div>
+            </div>
+
+        </div>
+
     </div>
-    
-    <div id="reticle">
-        <div class="reticle-corner tl"></div><div class="reticle-corner tr"></div>
-        <div class="reticle-corner bl"></div><div class="reticle-corner br"></div><div class="dot"></div>
+
+</div>
+
+<!-- =========================
+     CESIUM PAGE
+========================= -->
+
+<div class="page" id="cesiumPage">
+
+    <div class="cesium-layout">
+
+        <div class="left-panel">
+
+            <h2 style="font-size:28px;">
+                SMART CITY<br>
+                CONTROL
+            </h2>
+
+            <p style="margin-top:18px;color:#9fb2bf;line-height:1.8;">
+                AI 포트홀 탐지와 실시간 디지털 트윈
+                도로 모니터링 시스템
+            </p>
+
+            <div class="status-box">
+
+                <h3>실시간 감지 현황</h3>
+
+                <div class="status-number">
+                    <span id="cesiumDetectedCount">0</span>
+                </div>
+
+                <p style="margin-top:10px;color:#9fb2bf;">
+                    AI 감지 도로 파손 위치<br>
+                    포트홀 <span id="cesiumPotholeCount">0</span> · 크랙 <span id="cesiumCrackCount">0</span>
+                </p>
+
+            </div>
+
+        </div>
+
+        <div class="map-wrapper">
+
+            <div id="cesiumContainer"></div>
+
+            <div class="info-panel">
+
+                <h3>⚠ 위험 도로 파손 감지</h3>
+
+                <p style="line-height:1.8;color:#dbe7ff;">
+                    세종대학교 인근 도로에서
+                    깊이 15cm 이상의 위험 포트홀이
+                    감지되었습니다.
+                </p>
+
+                <button class="analyze-btn">
+                    정밀 분석 활성화
+                </button>
+
+            </div>
+
+        </div>
+
     </div>
-    <div id="scooter-handle"></div>
 
-    <script>
-        // ==========================================
-        // 1. Scene 설정
-        // ==========================================
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x7f8993); 
-        scene.fog = new THREE.FogExp2(0x7f8993, 0.003);
+</div>
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = false;
-        document.body.appendChild(renderer.domElement);
+<!-- =========================
+     THREE PAGE
+========================= -->
 
-        const ambientLight = new THREE.AmbientLight(0xdde5ee, 0.7);
-        scene.add(ambientLight);
-        
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(150, 200, -200);
-        scene.add(dirLight);
+<div class="page" id="threePage">
+    <iframe
+        id="three-embed-frame"
+        src="./index%EC%9C%84%ED%97%98%EB%8F%84%EC%B6%94%EA%B0%80.html"
+        title="세종대 위험도 시뮬레이션"
+        loading="lazy"
+    ></iframe>
 
-        const baseGround = new THREE.Mesh(
-            new THREE.PlaneGeometry(3000, 3000), 
-            new THREE.MeshStandardMaterial({ color: 0x465048, roughness: 1.0 })
-        );
-        baseGround.rotation.x = -Math.PI / 2; baseGround.position.y = -5.0; 
-        scene.add(baseGround);
+</div>
 
-        // ==========================================
-        // 2. 도로 텍스처
-        // ==========================================
-        function createRoadTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1024; canvas.height = 1024;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#3a3a3a'; ctx.fillRect(0, 0, 1024, 1024); 
-            for (let i = 0; i < 300000; i++) {
-                ctx.fillStyle = Math.random() > 0.5 ? '#2c2c2c' : '#4a4a4a';
-                ctx.fillRect(Math.random() * 1024, Math.random() * 1024, 1.5, 1.5);
-            }
-            ctx.fillStyle = '#e6b800';
-            ctx.fillRect(495, 0, 10, 1024); ctx.fillRect(519, 0, 10, 1024);
+<script>
 
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-            return tex;
-        }
-        const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.9, metalness: 0.1 });
+/* =========================
+   메뉴 이동
+========================= */
 
-        // ==========================================
-        // 3. 데이터 컨테이너 및 랜드마크 정밀 방위각 매핑
-        // ==========================================
-        const potholeData = [];
-        const crackData = [];
-        const buildingData = []; 
-        const roadSegments = []; 
-        
-        const roadGroup = new THREE.Group();
-        const assetGroup = new THREE.Group();
-        scene.add(roadGroup);
-        scene.add(assetGroup);
+function showPage(id,el){
 
-        let isCameraSet = false;
-        const RESULT_JSON_URL = './result.json';
-        const centerLat = 37.550833; const centerLng = 127.073889; 
+    document.querySelectorAll('.page').forEach(page=>{
+        page.classList.remove('active');
+    });
 
-        function latLngToXZ(lat, lng) {
-            const x = (lng - centerLng) * 88000;
-            const z = -(lat - centerLat) * 111000; 
-            return new THREE.Vector3(x, 0, z);
-        }
+    document.getElementById(id).classList.add('active');
 
-        // 🚨 [어린이대공원역 정문 남측 기준] 공식 안내도 안내 넘버링 동선 일치 캘리브레이션
-        const frontGate = { name: '정문', x: 0, z: 140 };
+    document.querySelectorAll('.menu-btn').forEach(btn=>{
+        btn.classList.remove('active');
+    });
 
-        const campusLandmarks = [
-            // 정문 진입 직후 구역 (남쪽)
-            { name: '대양홀 (2)', x: -50, z: 110, w: 34, d: 24, h: 34 },
-            { name: '모짜르트홀 (3)', x: -90, z: 115, w: 24, d: 18, h: 24 },
-            { name: '집현관 대학본부 (1)', x: -45, z: 70, w: 34, d: 22, h: 38 },
-            { name: '학생회관 (27)', x: 45, z: 105, w: 32, d: 24, h: 30 },
-            { name: '대양 AI 센터 (24)', x: 40, z: 75, w: 28, d: 22, h: 42 },
-            { name: '운동장 (25)', x: 85, z: 70, w: 60, d: 45, h: 2 },
-            { name: '세종관 (26)', x: 45, z: 40, w: 28, d: 20, h: 34 },
+    el.classList.add('active');
+}
 
-            // 캠퍼스 중위 구역 (중앙 통로 라인)
-            { name: '군자관 (4)', x: -45, z: 30, w: 30, d: 22, h: 34 },
-            { name: '광개토관 (5)', x: -80, z: 5, w: 36, d: 26, h: 48 },
-            { name: '이당관 (6)', x: -75, z: -35, w: 26, d: 20, h: 32 },
-            { name: '애지헌 (23)', x: 0, z: 15, w: 22, d: 18, h: 24 },
-            { name: '아사달 연못 (21)', x: 15, z: 20, w: 24, d: 20, h: 4 },
-            { name: '박물관 (20)', x: 15, z: -15, w: 26, d: 18, h: 26 },
+function quickMove(id,index){
 
-            // 서측 및 동측 심부 구역
-            { name: '진관홀 (7)', x: -40, z: -25, w: 24, d: 18, h: 28 },
-            { name: '용덕관 (8)', x: -35, z: -60, w: 24, d: 18, h: 28 },
-            { name: '홍진구조실험센터 (9)', x: -30, z: -95, w: 28, d: 20, h: 30 },
-            { name: '동천관 학술정보원 (18)', x: 45, z: 15, w: 34, d: 24, h: 42 },
-            { name: '우정당 (19)', x: 50, z: -15, w: 24, d: 18, h: 28 },
-            { name: '율곡관 (15)', x: 35, z: -50, w: 24, d: 18, h: 30 },
-            { name: '충무관 (14)', x: 35, z: -85, w: 28, d: 20, h: 32 },
-            { name: '다산관 (16)', x: 65, z: -65, w: 26, d: 20, h: 34 },
-            { name: '주차빌딩 (17)', x: 70, z: -100, w: 24, d: 18, h: 36 },
+    const buttons = document.querySelectorAll('.menu-btn');
 
-            // 북측 심부 (후문 인근 구역)
-            { name: '영실관 (13)', x: 0, z: -65, w: 28, d: 22, h: 32 },
-            { name: '세종초등학교 (10)', x: -10, z: -130, w: 38, d: 25, h: 24 },
-            { name: '미래교육원 별관 (11)', x: 25, z: -135, w: 22, d: 16, h: 26 },
-            { name: '세종초교 강당 (12)', x: 50, z: -135, w: 26, d: 18, h: 24 },
-            { name: '새날관 (28)', x: -35, z: -175, w: 26, d: 20, h: 28 },
-            { name: '무방관 (29)', x: 5, z: -175, w: 24, d: 18, h: 24 }
-        ];
+    showPage(id,buttons[index]);
+}
 
-        // 대공원역 정문 진입 기준 격자 도로망 재설계
-        const campusRoadPaths = [
-            // 정문 핵심 중앙 메인 간선로 (후문 무방관 통로 라인까지 직선 관통)
-            { width: 14, points: [{ x: frontGate.x, z: frontGate.z }, { x: 0, z: 80 }, { x: 0, z: 40 }, { x: -5, z: 0 }, { x: -5, z: -40 }, { x: 0, z: -100 }, { x: 0, z: -150 }]},
-            // 대양홀-군자관-광개토관 우측 서측 순환로 
-            { width: 11, points: [{ x: -45, z: 90 }, { x: -65, z: 60 }, { x: -65, z: 15 }, { x: -55, z: -30 }, { x: -50, z: -80 }, { x: -35, z: -150 }]},
-            // 학생회관-운동장 외곽-우정당-충무관 동측 간선로
-            { width: 11, points: [{ x: 45, z: 90 }, { x: 45, z: 45 }, { x: 40, z: 0 }, { x: 35, z: -40 }, { x: 35, z: -110 }]},
-            // 수평 분기 연결 도로 허브
-            { width: 10, points: [{ x: -65, z: 60 }, { x: 45, z: 60 }]},
-            { width: 9, points: [{ x: -65, z: 15 }, { x: 40, z: 15 }]},
-            { width: 9, points: [{ x: -55, z: -30 }, { x: 35, z: -30 }]}
-        ];
+const embeddedFrame = document.getElementById('three-embed-frame');
+if (embeddedFrame) {
+    embeddedFrame.src = `./index%EC%9C%84%ED%97%98%EB%8F%84%EC%B6%94%EA%B0%80.html?t=${Date.now()}`;
+}
 
-        function addRoadStrip(startPoint, endPoint, width) {
-            const start = new THREE.Vector3(startPoint.x, 0, startPoint.z);
-            const end = new THREE.Vector3(endPoint.x, 0, endPoint.z);
-            const dist = start.distanceTo(end);
-            if (dist < 1) return;
+/* =========================
+   Cesium
+========================= */
 
-            const roadGeo = new THREE.PlaneGeometry(width, dist, 24, Math.max(6, Math.floor(dist / 3)));
-            const roadMesh = new THREE.Mesh(roadGeo, roadMat);
-            const mid = start.clone().lerp(end, 0.5);
+const viewer = new Cesium.Viewer('cesiumContainer',{
+    imageryProvider:new Cesium.OpenStreetMapImageryProvider({
+        url:'https://a.tile.openstreetmap.org/'
+    }),
+    baseLayerPicker:false,
+    geocoder:false,
+    timeline:false,
+    animation:false,
+    infoBox:false,
+    selectionIndicator:false
+});
 
-            roadMesh.position.set(mid.x, 0.05, mid.z);
-            roadMesh.lookAt(end.x, 0.05, end.z);
-            roadMesh.rotateX(-Math.PI / 2);
-            roadMesh.updateMatrixWorld();
+viewer.camera.flyTo({
+    destination:Cesium.Cartesian3.fromDegrees(
+        127.0738,
+        37.5506,
+        1800
+    ),
+    duration:2
+});
 
-            const positions = roadGeo.attributes.position;
-            const v = new THREE.Vector3();
+initializeCesiumPotholes();
 
-            for (let j = 0; j < positions.count; j++) {
-                v.fromBufferAttribute(positions, j);
-                roadMesh.localToWorld(v);
+/* 3D 시뮬레이션은 index위험도추가.html에서만 동작하도록 분리됨 */
 
-                for (let p of potholeData) {
-                    const dx = v.x - p.x; const dz = v.z - p.z;
-                    const pDist = Math.sqrt(dx * dx + dz * dz);
-                    if (pDist < p.r) {
-                        const depthFalloff = Math.cos((pDist / p.r) * (Math.PI / 2));
-                        v.y -= (p.depth * depthFalloff) + (Math.random() * 0.03);
-                    }
-                }
-                roadMesh.worldToLocal(v);
-                positions.setXYZ(j, v.x, v.y, v.z);
-            }
+</script>
 
-            roadGeo.computeVertexNormals();
-            roadGroup.add(roadMesh);
-            roadSegments.push({ p1: start, p2: end, width });
-        }
-
-        function toNumber(value, fallback = 0) {
-            const numberValue = Number(value);
-            return Number.isFinite(numberValue) ? numberValue : fallback;
-        }
-
-        function clamp(v, min, max){
-            return Math.min(max, Math.max(min, v));
-        }
-
-        function isValidResultItem(item) {
-            if (!item) return false;
-            return Number.isFinite(toNumber(item.lat, NaN)) && Number.isFinite(toNumber(item.lng, NaN));
-        }
-
-        function normalizeResultItem(item, index) {
-            const type = String(item.type || 'pothole').toLowerCase() === 'crack' ? 'crack' : 'pothole';
-            const position = latLngToXZ(toNumber(item.lat), toNumber(item.lng));
-            return {
-                id: String(item.id || `item-${index + 1}`),
-                type, lat: toNumber(item.lat), lng: toNumber(item.lng),
-                x: position.x, z: position.z,
-                r: Math.max(0.8, Math.max(toNumber(item.width_m, 1.2), toNumber(item.length_m, 1.2)) * 0.5),
-                width: Math.max(0.2, toNumber(item.width_m, 1.2)),
-                length: Math.max(0.2, toNumber(item.length_m, 1.2)),
-                depth: Math.max(0.01, toNumber(item.depth_m, 0.12)),
-                confidence: clamp(toNumber(item.confidence, 0.5), 0, 1)
-            };
-        }
-
-        async function loadResultJson() {
-            try {
-                const response = await fetch(`${RESULT_JSON_URL}?t=${Date.now()}`, { cache: 'no-store' });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const json = await response.json();
-                const list = Array.isArray(json) ? json : (Array.isArray(json.items) ? json.items : []);
-                return list.filter(isValidResultItem).map(normalizeResultItem);
-            } catch (error) {
-                // 시연 연동 부재시 폴백 자동 가동
-                return [
-                    { lat: 37.5505, lng: 127.0739, width_m: 1.5, length_m: 1.5, depth_m: 0.16, confidence: 0.92, type: 'pothole' },
-                    { lat: 37.5511, lng: 127.0740, width_m: 0.2, length_m: 4.5, depth_m: 0.03, confidence: 0.85, type: 'crack' }
-                ].map((item, idx) => normalizeResultItem(item, idx));
-            }
-        }
-
-        function seedHazards(items) {
-            potholeData.length = 0; crackData.length = 0;
-            items.forEach(item => {
-                if (item.type === 'crack') crackData.push(item);
-                else potholeData.push(item);
-            });
-        }
-
-        async function initSejongSmartCity() {
-            try {
-                const items = await loadResultJson();
-                seedHazards(items);
-            } catch(e) { console.error(e); }
-
-            campusRoadPaths.forEach(path => {
-                for (let index = 0; index < path.points.length - 1; index++) {
-                    addRoadStrip(path.points[index], path.points[index + 1], path.width);
-                }
-            });
-
-            spawnCampusLandmarks();
-            document.getElementById('loading').style.display = 'none';
-        }
-
-        function spawnCampusLandmarks() {
-            const landmarkList = document.getElementById('landmark-list');
-            if (landmarkList) landmarkList.innerHTML = '';
-
-            campusLandmarks.forEach((landmark) => {
-                const isField = landmark.name.includes('운동장') || landmark.name.includes('연못');
-                const body = new THREE.Mesh(
-                    new THREE.BoxGeometry(landmark.w, isField ? 0.2 : landmark.h, landmark.d),
-                    new THREE.MeshStandardMaterial({ 
-                        color: landmark.name.includes('운동장') ? 0x557a46 : (landmark.name.includes('연못') ? 0x4cc9f0 : 0x8fa7c5), 
-                        roughness: 0.8 
-                    })
-                );
-                body.position.set(landmark.x, isField ? 0.1 : landmark.h / 2, landmark.z);
-                scene.add(body);
-
-                if (landmarkList) {
-                    const li = document.createElement('li');
-                    li.textContent = landmark.name;
-                    landmarkList.appendChild(li);
-                }
-            });
-        }
-
-        function calculatePotholeRisk({ width, length, depth, distance, speed }) {
-            const total = Math.min(100, (width * length) * 8 + depth * 120 + (distance < 5 ? 40 : (distance < 10 ? 30 : 15)) + Math.abs(speed) * 35);
-            return { score: total.toFixed(1), level: total >= 70 ? "HIGH" : (total >= 40 ? "MEDIUM" : "LOW") };
-        }
-
-        function calculateCrackRisk({ radius, distance, speed }) {
-            const total = Math.min(100, radius * 7 + (distance < 3 ? 35 : (distance < 8 ? 24 : 12)) + Math.abs(speed) * 20);
-            return { score: total.toFixed(1), level: total >= 70 ? "HIGH" : (total >= 40 ? "MEDIUM" : "LOW") };
-        }
-
-        // ==========================================
-        // 6. 주행 및 렌더링 루프 (미니맵 명칭 레이어 기능 이식)
-        // ==========================================
-        camera.position.set(frontGate.x, 1.8, frontGate.z); 
-        camera.lookAt(0, 1.8, 40); // 정문 진입 시 내부 응시 고정
-        const targetPos = new THREE.Vector3(frontGate.x, 1.8, frontGate.z);
-        
-        let speed = 0; const maxSpeed = 1.5; const acceleration = 0.03; const friction = 0.94;
-        const keys = { w: false, a: false, s: false, d: false };
-
-        const alertBox = document.getElementById('alert-box');
-        const riskDistanceEl = document.getElementById('risk-distance');
-        const riskTypeEl = document.getElementById('risk-type');
-        const riskScoreEl = document.getElementById('risk-score');
-        const riskLevelEl = document.getElementById('risk-level');
-
-        window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
-        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
-
-        function checkCollisions() {
-            let inPothole = false; let inCrack = false;
-            let nearestPotholeDistance = Infinity; let nearestPotholeRisk = { score: "0.0", level: "LOW" };
-            let nearestCrackDistance = Infinity; let nearestCrackRisk = { score: "0.0", level: "LOW" };
-
-            potholeData.forEach(p => {
-                const distance = Math.sqrt(Math.pow(camera.position.x - p.x, 2) + Math.pow(camera.position.z - p.z, 2));
-                if (distance < nearestPotholeDistance) {
-                    nearestPotholeDistance = distance;
-                    nearestPotholeRisk = calculatePotholeRisk({ width: p.width, length: p.length, depth: p.depth, distance, speed });
-                }
-                if (distance < p.r) inPothole = true;
-            });
-
-            crackData.forEach(c => {
-                const distance = Math.sqrt(Math.pow(camera.position.x - c.x, 2) + Math.pow(camera.position.z - c.z, 2));
-                if (distance < nearestCrackDistance) {
-                    nearestCrackDistance = distance;
-                    nearestCrackRisk = calculateCrackRisk({ radius: c.r, distance, speed });
-                }
-                if (distance < c.r) inCrack = true;
-            });
-
-            const potholeNear = nearestPotholeDistance < 20; const crackNear = nearestCrackDistance < 15;
-            const dominantIsPothole = potholeNear && (!crackNear || Number(nearestPotholeRisk.score) >= Number(nearestCrackRisk.score));
-            const type = dominantIsPothole ? "pothole" : (crackNear ? "crack" : null);
-            const risk = dominantIsPothole ? nearestPotholeRisk : nearestCrackRisk;
-            const dist = dominantIsPothole ? nearestPotholeDistance : nearestCrackDistance;
-
-            if (type) {
-                riskDistanceEl.innerText = dist.toFixed(1);
-                riskTypeEl.innerText = type === 'pothole' ? 'POTHOLE' : 'CRACK';
-                riskTypeEl.className = type === 'pothole' ? 'risk-type-pothole' : 'risk-type-crack';
-                riskScoreEl.innerText = risk.score; riskLevelEl.innerText = risk.level;
-                riskLevelEl.className = risk.level === "HIGH" ? "risk-high" : (risk.level === "MEDIUM" ? "risk-medium" : "risk-low");
-            }
-
-            if (inPothole || (nearestPotholeDistance < 15 && nearestPotholeRisk.level !== "LOW")) {
-                alertBox.style.display = 'block'; alertBox.className = 'alert-pothole';
-                alertBox.innerHTML = `🚨 [고위험] 인라인 파손 탐지 위험도: ${nearestPotholeRisk.score} · 거리: ${nearestPotholeDistance.toFixed(1)}m`;
-            } else if (inCrack || (nearestCrackDistance < 12 && nearestCrackRisk.level !== "LOW")) {
-                alertBox.style.display = 'block'; alertBox.className = 'alert-crack';
-                alertBox.innerHTML = `⚠️ [주의] 크랙 균열구간 통과 중`;
-            } else {
-                alertBox.style.display = 'none';
-            }
-        }
-
-        const minimapCanvas = document.getElementById('minimap');
-        const mCtx = minimapCanvas.getContext('2d');
-
-        // ⭐ 미니맵 명칭 실시간 가로채기 드로잉 레이어 함수
-        function updateMinimap() {
-            mCtx.clearRect(0, 0, 280, 280);
-            const cx = 140; const cy = 140; const mapScale = 0.95;
-
-            // 1. 도로망 렌더링
-            mCtx.strokeStyle = '#444'; mCtx.lineCap = 'round';
-            roadSegments.forEach(seg => {
-                mCtx.lineWidth = seg.width * mapScale; mCtx.beginPath();
-                mCtx.moveTo(cx + (seg.p1.x - camera.position.x) * mapScale, cy + (seg.p1.z - camera.position.z) * mapScale);
-                mCtx.lineTo(cx + (seg.p2.x - camera.position.x) * mapScale, cy + (seg.p2.z - camera.position.z) * mapScale);
-                mCtx.stroke();
-            });
-
-            // 2. 건물 블록 및 명칭 텍스트 레이어 합성
-            campusLandmarks.forEach(b => {
-                let rx = cx + (b.x - b.w/2 - camera.position.x) * mapScale;
-                let rz = cy + (b.z - b.d/2 - camera.position.z) * mapScale;
-                
-                mCtx.fillStyle = b.name.includes('운동장') ? 'rgba(85, 122, 70, 0.75)' : (b.name.includes('연못') ? 'rgba(76, 201, 240, 0.6)' : 'rgba(100, 145, 215, 0.7)'); 
-                mCtx.fillRect(rx, rz, b.w * mapScale, b.d * mapScale);
-
-                // 텍스트 라벨 인라인 매핑
-                mCtx.fillStyle = '#ffffff';
-                mCtx.font = '9px sans-serif';
-                mCtx.textAlign = 'center';
-                // 글자가 겹쳐서 깨지는 현상을 막기 위해 블록 중앙에 명칭 표시
-                mCtx.fillText(b.name.split(' ')[0], rx + (b.w * mapScale)/2, rz + (b.d * mapScale)/2 + 3);
-            });
-
-            // 3. 실시간 위험 객체 프로팅
-            mCtx.fillStyle = '#ffaa00';
-            potholeData.forEach(p => {
-                mCtx.beginPath(); mCtx.arc(cx + (p.x - camera.position.x) * mapScale, cy + (p.z - camera.position.z) * mapScale, p.r * mapScale, 0, Math.PI*2); mCtx.fill();
-            });
-
-            // 4. 내 위치 및 시야각 레이더 바인딩
-            const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-            const angle = Math.atan2(dir.z, dir.x);
-            mCtx.fillStyle = 'rgba(0, 255, 204, 0.35)'; mCtx.beginPath(); mCtx.moveTo(cx, cy); mCtx.arc(cx, cy, 35, angle - 0.5, angle + 0.5); mCtx.fill();
-            mCtx.fillStyle = '#00ffcc'; mCtx.beginPath(); mCtx.arc(cx, cy, 5, 0, Math.PI * 2); mCtx.fill();
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if (keys.w) speed = Math.min(speed + acceleration, maxSpeed);
-            else if (keys.s) speed = Math.max(speed - acceleration, -maxSpeed);
-            else speed *= friction;
-
-            if (keys.a) camera.rotation.y += 0.025;
-            if (keys.d) camera.rotation.y -= 0.025;
-
-            const dir = new THREE.Vector3(); camera.getWorldDirection(dir); dir.y = 0; dir.normalize();
-            targetPos.set(targetPos.x + dir.x * speed, 1.8, targetPos.z + dir.z * speed);
-            camera.position.lerp(targetPos, 0.15); 
-
-            checkCollisions();
-            renderer.render(scene, camera);
-            updateMinimap();
-        }
-
-        initSejongSmartCity();
-        animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
 </body>
 </html>
