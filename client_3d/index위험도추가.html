@@ -5,7 +5,7 @@
     <title>세종대 스마트시티 - 리얼 3D 뎁스 관제 시뮬레이션</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #d8aa8c; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #7f8993; font-family: 'Segoe UI', Tahoma, sans-serif; }
         
         /* 로딩 UI */
         #loading {
@@ -102,6 +102,21 @@
         .risk-type-crack { color: #ff5b5b; font-weight: bold; }
         .risk-type-none { color: #9aa7b8; font-weight: bold; }
 
+        .landmark-title {
+            margin-top: 14px;
+            color: #00ffcc;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .landmark-list {
+            margin-top: 8px;
+            padding-left: 18px;
+            color: #e7eef7;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
 
     </style>
 </head>
@@ -129,6 +144,8 @@
         <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">W</span> 전진 가속</p>
         <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">A</span> <span class="key-btn">D</span> 좌우 핸들</p>
         <p style="margin: 5px 0; font-size: 14px;"><span class="key-btn">S</span> 브레이크 및 후진</p>
+        <div class="landmark-title">세종대 주요 건물</div>
+        <ul class="landmark-list" id="landmark-list"></ul>
     </div>
     
     <div id="reticle">
@@ -142,30 +159,24 @@
         // 1. 씬, 카메라, 조명
         
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xd8aa8c); 
-        scene.fog = new THREE.FogExp2(0xd8aa8c, 0.003);
+        scene.background = new THREE.Color(0x7f8993); 
+        scene.fog = new THREE.FogExp2(0x7f8993, 0.003);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
         
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.enabled = false;
         document.body.appendChild(renderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        const ambientLight = new THREE.AmbientLight(0xdde5ee, 0.7);
         scene.add(ambientLight);
         
-        const dirLight = new THREE.DirectionalLight(0xffcba4, 1.8);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
         dirLight.position.set(150, 200, -200);
-        dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
-        dirLight.shadow.camera.left = -200; dirLight.shadow.camera.right = 200;
-        dirLight.shadow.camera.top = 200; dirLight.shadow.camera.bottom = -200;
         scene.add(dirLight);
 
-        const baseGround = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x3d4435, roughness: 1.0 }));
+        const baseGround = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x465048, roughness: 1.0 }));
         baseGround.rotation.x = -Math.PI / 2; baseGround.position.y = -5.0; 
         baseGround.receiveShadow = true;
         scene.add(baseGround);
@@ -200,15 +211,213 @@
         const crackData = [];
         const buildingData = []; 
         const roadSegments = []; 
+        const roadGroup = new THREE.Group();
+        scene.add(roadGroup);
         let isCameraSet = false;
         let useResultHazards = false;
         const RESULT_JSON_URL = './result.json';
 
-        const centerLat = 37.5502; const centerLng = 127.0731; // 세종대 중심
+        const centerLat = 37.550833; const centerLng = 127.073889; // 세종대 중심(정문/본관 인근 좌표)
         function latLngToXZ(lat, lng) {
             const x = (lng - centerLng) * 88000;
             const z = -(lat - centerLat) * 111000; 
             return new THREE.Vector3(x, 0, z);
+        }
+
+        const frontGate = { name: '정문', x: -145, z: 100 };
+
+        const campusLandmarks = [
+            { name: '집현관(대학본부)', x: -105, z: -45, w: 34, d: 24, h: 38 },
+            { name: '대양홀', x: -138, z: -22, w: 30, d: 22, h: 34 },
+            { name: '모짜르트홀', x: -168, z: -8, w: 24, d: 18, h: 24 },
+            { name: '군자관', x: -58, z: -24, w: 30, d: 22, h: 34 },
+            { name: '광개토관', x: -32, z: -60, w: 34, d: 24, h: 40 },
+            { name: '이당관', x: -2, z: -58, w: 28, d: 20, h: 32 },
+            { name: '진관홀', x: 26, z: -54, w: 24, d: 18, h: 28 },
+            { name: '용덕관', x: 52, z: -50, w: 24, d: 18, h: 28 },
+            { name: '홍진구조실험센터', x: 78, z: -46, w: 28, d: 20, h: 30 },
+            { name: '세종초등학교', x: 104, z: -30, w: 30, d: 20, h: 24 },
+            { name: '미래교육원 별관', x: 100, z: -12, w: 24, d: 18, h: 26 },
+            { name: '세종초등학교 강당', x: 124, z: -8, w: 26, d: 18, h: 24 },
+            { name: '영실관', x: 72, z: -10, w: 26, d: 20, h: 30 },
+            { name: '충무관', x: 46, z: 10, w: 28, d: 20, h: 32 },
+            { name: '율곡관', x: 32, z: -4, w: 24, d: 18, h: 30 },
+            { name: '다산관', x: 90, z: 14, w: 26, d: 20, h: 34 },
+            { name: '주차빌딩', x: 116, z: 24, w: 24, d: 18, h: 36 },
+            { name: '동천관(학술정보원)', x: 18, z: 26, w: 34, d: 24, h: 42 },
+            { name: '우정당', x: 52, z: 34, w: 24, d: 18, h: 28 },
+            { name: '박물관', x: 12, z: 54, w: 24, d: 18, h: 26 },
+            { name: '아사달 연못', x: 42, z: 48, w: 30, d: 22, h: 4 },
+            { name: '대양 타워', x: 74, z: 30, w: 22, d: 18, h: 52 },
+            { name: '애지헌', x: 0, z: 6, w: 24, d: 18, h: 24 },
+            { name: '대양 AI 센터', x: -24, z: -8, w: 30, d: 22, h: 40 },
+            { name: '운동장', x: -36, z: 64, w: 44, d: 28, h: 3 },
+            { name: '세종관', x: -78, z: 74, w: 28, d: 20, h: 34 },
+            { name: '학생회관', x: -110, z: 84, w: 30, d: 22, h: 30 },
+            { name: '새날관', x: 146, z: -58, w: 26, d: 20, h: 28 },
+            { name: '무방관', x: 170, z: -52, w: 24, d: 18, h: 24 }
+        ];
+
+        const campusRoadPaths = [
+            { width: 16, points: [
+                { x: frontGate.x, z: frontGate.z },
+                { x: -138, z: 76 },
+                { x: -126, z: 58 },
+                { x: -114, z: 40 },
+                { x: -100, z: 22 },
+                { x: -82, z: 8 },
+                { x: -60, z: -4 },
+                { x: -34, z: -18 },
+                { x: -8, z: -30 },
+                { x: 20, z: -40 },
+                { x: 48, z: -46 },
+                { x: 78, z: -46 },
+                { x: 108, z: -42 },
+                { x: 138, z: -38 }
+            ]},
+            { width: 14, points: [
+                { x: -160, z: -6 },
+                { x: -130, z: -14 },
+                { x: -98, z: -20 },
+                { x: -64, z: -24 },
+                { x: -30, z: -24 },
+                { x: 2, z: -22 },
+                { x: 36, z: -18 },
+                { x: 70, z: -14 },
+                { x: 104, z: -12 },
+                { x: 138, z: -10 },
+                { x: 168, z: -8 }
+            ]},
+            { width: 12, points: [
+                { x: -128, z: 54 },
+                { x: -104, z: 44 },
+                { x: -80, z: 34 },
+                { x: -56, z: 24 },
+                { x: -30, z: 14 },
+                { x: -2, z: 8 },
+                { x: 26, z: 4 },
+                { x: 56, z: 6 },
+                { x: 84, z: 10 },
+                { x: 112, z: 16 },
+                { x: 140, z: 20 }
+            ]},
+            { width: 10, points: [
+                { x: -120, z: 80 },
+                { x: -92, z: 76 },
+                { x: -64, z: 72 },
+                { x: -36, z: 68 },
+                { x: -8, z: 66 }
+            ]},
+            { width: 10, points: [
+                { x: 34, z: -2 },
+                { x: 64, z: -4 },
+                { x: 94, z: -2 },
+                { x: 124, z: 0 },
+                { x: 154, z: 2 }
+            ]},
+            { width: 11, points: [
+                { x: -96, z: -48 },
+                { x: -68, z: -50 },
+                { x: -40, z: -50 },
+                { x: -12, z: -48 },
+                { x: 16, z: -46 },
+                { x: 44, z: -44 },
+                { x: 72, z: -42 }
+            ]}
+        ];
+
+        function makeLabelSprite(text) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+            ctx.fillRect(0, 20, canvas.width, 88);
+            ctx.strokeStyle = 'rgba(0, 255, 204, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(4, 24, canvas.width - 8, 80);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 34px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 4);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(34, 8.5, 1);
+            return sprite;
+        }
+
+        function addRoadStrip(startPoint, endPoint, width) {
+            const start = new THREE.Vector3(startPoint.x, 0, startPoint.z);
+            const end = new THREE.Vector3(endPoint.x, 0, endPoint.z);
+            const dist = start.distanceTo(end);
+
+            if (dist < 1) return;
+
+            const roadGeo = new THREE.PlaneGeometry(width, dist, 24, Math.max(6, Math.floor(dist / 3)));
+            const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+            const mid = start.clone().lerp(end, 0.5);
+
+            roadMesh.position.set(mid.x, 0.05, mid.z);
+            roadMesh.lookAt(end.x, 0.05, end.z);
+            roadMesh.rotateX(-Math.PI / 2);
+            roadMesh.updateMatrixWorld();
+
+            const positions = roadGeo.attributes.position;
+            const v = new THREE.Vector3();
+
+            for (let j = 0; j < positions.count; j++) {
+                v.fromBufferAttribute(positions, j);
+                roadMesh.localToWorld(v);
+
+                for (let p of potholeData) {
+                    const dx = v.x - p.x;
+                    const dz = v.z - p.z;
+                    const pDist = Math.sqrt(dx * dx + dz * dz);
+
+                    if (pDist < p.r) {
+                        const normalizedDist = pDist / p.r;
+                        const depthFalloff = Math.cos(normalizedDist * (Math.PI / 2));
+                        v.y -= (p.depth * depthFalloff) + (Math.random() * 0.04);
+                    }
+                }
+
+                roadMesh.worldToLocal(v);
+                positions.setXYZ(j, v.x, v.y, v.z);
+            }
+
+            roadGeo.computeVertexNormals();
+            roadMesh.receiveShadow = false;
+            roadMesh.castShadow = false;
+            roadGroup.add(roadMesh);
+            roadSegments.push({ p1: start, p2: end, width });
+        }
+
+        function clearRoadNetwork() {
+            while (roadGroup.children.length > 0) {
+                roadGroup.remove(roadGroup.children[0]);
+            }
+            roadSegments.length = 0;
+        }
+
+        function spawnCampusRoadNetwork() {
+            clearRoadNetwork();
+
+            campusRoadPaths.forEach(path => {
+                for (let index = 0; index < path.points.length - 1; index++) {
+                    addRoadStrip(path.points[index], path.points[index + 1], path.width);
+                }
+            });
+
+            spawnCampusLandmarks();
+            spawnCrackDecals();
+            document.getElementById('loading').style.display = 'none';
         }
 
         function toNumber(value, fallback = 0) {
@@ -391,9 +600,19 @@
             const resultItems = await loadResultJson();
             seedHazardsFromResultJson(resultItems);
 
-            const bbox = "37.548,127.070,37.553,127.076";
+            const bbox = "37.5485,127.0705,37.5535,127.0770";
             const query = `[out:json];(way["highway"](${bbox}););out geom;`;
             const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+            const allowedRoadTypes = new Set(['primary', 'secondary', 'tertiary', 'residential', 'service', 'unclassified', 'living_street']);
+            const roadWidthMap = {
+                primary: 18,
+                secondary: 16,
+                tertiary: 14,
+                residential: 12,
+                service: 10,
+                unclassified: 12,
+                living_street: 10
+            };
 
             try {
                 const response = await fetch(url);
@@ -401,6 +620,11 @@
                 const data = await response.json();
 
                 data.elements.forEach(element => {
+                    const highwayType = String(element.tags?.highway || '').toLowerCase();
+                    if (!allowedRoadTypes.has(highwayType)) {
+                        return;
+                    }
+
                     if (element.geometry && element.geometry.length > 1) {
                         for(let i=0; i < element.geometry.length - 1; i++) {
                             const p1 = latLngToXZ(element.geometry[i].lat, element.geometry[i].lon);
@@ -410,7 +634,7 @@
                             
                             let dir = new THREE.Vector3().subVectors(p2, p1).normalize();
                             let right = new THREE.Vector3(-dir.z, 0, dir.x).normalize(); 
-                            const roadWidth = 20; 
+                            const roadWidth = roadWidthMap[highwayType] || 12; 
 
                             // 카메라와 파손 구역은 첫 번째 큰 도로에만 1회 설정
                             if (!isCameraSet && dist > 30) {
@@ -436,32 +660,6 @@
                                 camera.position.set(p1.x, 1.8, p1.z);
                                 targetPos.set(p1.x, 1.8, p1.z);
                                 camera.lookAt(p2.x, 1.8, p2.z);
-                            }
-
-                            // 도로망을 따라 대충 캠퍼스 건물들을 절차적(Random)으로 생성
-                            if (dist > 20) {
-                                let numBuildings = Math.floor(dist / 40); // 40m당 1개꼴로 배치
-                                for(let k=1; k<=numBuildings; k++) {
-                                    let t = k / (numBuildings + 1);
-                                    let bCenter = p1.clone().lerp(p2, t);
-
-                                    // 도로 왼쪽 건물
-                                    if(Math.random() > 0.3) {
-                                        let bw = 15 + Math.random()*25, bd = 15 + Math.random()*25, bh = 15 + Math.random()*40;
-                                        let bx = bCenter.x - right.x * (roadWidth/2 + bw/2 + 5);
-                                        let bz = bCenter.z - right.z * (roadWidth/2 + bd/2 + 5);
-                                        let baseColor = new THREE.Color(0.5 + Math.random()*0.2, 0.5 + Math.random()*0.2, 0.5 + Math.random()*0.2);
-                                        buildingData.push({ x: bx, z: bz, w: bw, h: bh, d: bd, color: baseColor.getHex() });
-                                    }
-                                    // 도로 오른쪽 건물
-                                    if(Math.random() > 0.3) {
-                                        let bw = 15 + Math.random()*25, bd = 15 + Math.random()*25, bh = 15 + Math.random()*40;
-                                        let bx = bCenter.x + right.x * (roadWidth/2 + bw/2 + 5);
-                                        let bz = bCenter.z + right.z * (roadWidth/2 + bd/2 + 5);
-                                        let baseColor = new THREE.Color(0.5 + Math.random()*0.2, 0.5 + Math.random()*0.2, 0.5 + Math.random()*0.2);
-                                        buildingData.push({ x: bx, z: bz, w: bw, h: bh, d: bd, color: baseColor.getHex() });
-                                    }
-                                }
                             }
 
                             const roadGeo = new THREE.PlaneGeometry(roadWidth, dist, 32, Math.max(8, Math.floor(dist)));
@@ -503,7 +701,7 @@
                     }
                 });
 
-                spawnBuildings(); 
+                spawnCampusLandmarks();
                 spawnCrackDecals(); 
                 document.getElementById('loading').style.display = 'none';
 
@@ -513,17 +711,30 @@
         }
 
         
-        // 5. 생성된 건물 데이터를 바탕으로 3D 메쉬 생성
-        
-        function spawnBuildings() {
-            buildingData.forEach(b => {
-                const bGeo = new THREE.BoxGeometry(b.w, b.h, b.d);
-                const bMat = new THREE.MeshStandardMaterial({ color: b.color, roughness: 0.9 });
-                const buildingMesh = new THREE.Mesh(bGeo, bMat);
-                buildingMesh.position.set(b.x, b.h / 2, b.z);
-                buildingMesh.castShadow = true; 
-                buildingMesh.receiveShadow = true;
-                scene.add(buildingMesh);
+        function spawnCampusLandmarks() {
+            const landmarkList = document.getElementById('landmark-list');
+            if (landmarkList) {
+                landmarkList.innerHTML = '';
+            }
+
+            campusLandmarks.forEach((landmark) => {
+                const body = new THREE.Mesh(
+                    new THREE.BoxGeometry(landmark.w, landmark.h, landmark.d),
+                    new THREE.MeshStandardMaterial({ color: 0x8fa7c5, roughness: 0.75, metalness: 0.05 })
+                );
+                body.position.set(landmark.x, landmark.h / 2, landmark.z);
+                body.receiveShadow = false;
+                scene.add(body);
+
+                const label = makeLabelSprite(landmark.name);
+                label.position.set(landmark.x, landmark.h + 10, landmark.z);
+                scene.add(label);
+
+                if (landmarkList) {
+                    const li = document.createElement('li');
+                    li.textContent = landmark.name;
+                    landmarkList.appendChild(li);
+                }
             });
         }
 
@@ -562,7 +773,7 @@
             scene.add(crackGroup);
         }
 
-        fetchSejongRoads();
+        spawnCampusRoadNetwork();
 
         
         // 7. 실시간 위치 추적 미니맵 레이더
@@ -585,13 +796,28 @@
                 mCtx.stroke();
             });
 
-            // 건물 블록 표시
-            mCtx.fillStyle = 'rgba(100, 150, 255, 0.6)';
-            buildingData.forEach(b => {
-                let rx = cx + (b.x - b.w/2 - camera.position.x) * mapScale;
-                let rz = cy + (b.z - b.d/2 - camera.position.z) * mapScale;
-                mCtx.fillRect(rx, rz, b.w * mapScale, b.d * mapScale);
+            // 주요 건물 표시
+            campusLandmarks.forEach(landmark => {
+                const rx = cx + (landmark.x - landmark.w / 2 - camera.position.x) * mapScale;
+                const rz = cy + (landmark.z - landmark.d / 2 - camera.position.z) * mapScale;
+                mCtx.fillStyle = 'rgba(120, 170, 255, 0.65)';
+                mCtx.fillRect(rx, rz, landmark.w * mapScale, landmark.d * mapScale);
+
+                mCtx.fillStyle = '#dcecff';
+                mCtx.font = 'bold 10px sans-serif';
+                mCtx.textAlign = 'left';
+                mCtx.fillText(landmark.name, rx + 2, rz - 3);
             });
+
+            const gateX = cx + (frontGate.x - camera.position.x) * mapScale;
+            const gateY = cy + (frontGate.z - camera.position.z) * mapScale;
+            mCtx.fillStyle = '#ff5b5b';
+            mCtx.beginPath();
+            mCtx.arc(gateX, gateY, 7, 0, Math.PI * 2);
+            mCtx.fill();
+            mCtx.fillStyle = '#ffffff';
+            mCtx.font = 'bold 11px sans-serif';
+            mCtx.fillText('정문', gateX + 10, gateY - 8);
 
             // 포트홀(주황), 크랙(빨강)
             mCtx.fillStyle = '#ffaa00';
@@ -617,8 +843,9 @@
         
         // 8. 킥보드 주행 및 충돌 감지 로직 (A/D 방향 뒤집기 반영)
         
-        camera.position.set(0, 1.8, 0); 
-        const targetPos = new THREE.Vector3(0, 1.8, 0);
+        camera.position.set(frontGate.x, 1.8, frontGate.z); 
+        camera.lookAt(-95, 1.8, 80);
+        const targetPos = new THREE.Vector3(frontGate.x, 1.8, frontGate.z);
         let speed = 0; const maxSpeed = 1.5; const acceleration = 0.03; const friction = 0.94;
         const keys = { w: false, a: false, s: false, d: false };
         const alertBox = document.getElementById('alert-box');
@@ -626,6 +853,8 @@
         const riskTypeEl = document.getElementById('risk-type');
         const riskScoreEl = document.getElementById('risk-score');
         const riskLevelEl = document.getElementById('risk-level');
+
+        isCameraSet = true;
 
         window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
         window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
@@ -745,9 +974,8 @@
             else if (keys.s) speed = Math.max(speed - acceleration, -maxSpeed);
             else speed *= friction;
 
-            // 🚨 A키와 D키의 회전 방향을 반대로 수정함!
-            if (keys.a) camera.rotation.y -= 0.03; // 원래 += 였음
-            if (keys.d) camera.rotation.y += 0.03; // 원래 -= 였음
+            if (keys.a) camera.rotation.y += 0.03;
+            if (keys.d) camera.rotation.y -= 0.03;
 
             const dir = new THREE.Vector3();
             camera.getWorldDirection(dir); dir.y = 0; dir.normalize();
