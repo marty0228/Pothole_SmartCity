@@ -172,8 +172,12 @@
         
         const roadGroup = new THREE.Group();
         const assetGroup = new THREE.Group();
+        const hazardGroup = new THREE.Group();
         scene.add(roadGroup);
         scene.add(assetGroup);
+        scene.add(hazardGroup);
+
+        const hazardMarkers = new Map();
 
         let isCameraSet = false;
         const RESULT_JSON_URL = './result.json';
@@ -324,6 +328,50 @@
             };
         }
 
+        function clearHazardScene() {
+            hazardMarkers.forEach(marker => {
+                hazardGroup.remove(marker);
+                if (marker.geometry) marker.geometry.dispose();
+                if (marker.material) marker.material.dispose();
+            });
+
+            hazardMarkers.clear();
+        }
+
+        function createHazardMarker(item) {
+            const color = item.type === 'crack' ? 0xff9933 : 0xff3333;
+            const marker = new THREE.Mesh(
+                new THREE.SphereGeometry(Math.max(0.45, item.r * 0.28), 16, 16),
+                new THREE.MeshStandardMaterial({
+                    color,
+                    emissive: color,
+                    emissiveIntensity: 0.35,
+                    roughness: 0.35,
+                    metalness: 0.05
+                })
+            );
+
+            marker.position.set(item.x, 0.9, item.z);
+            marker.userData.hazardId = item.id;
+            return marker;
+        }
+
+        function addHazardItem(item) {
+            if (!isValidResultItem(item)) return null;
+
+            const normalized = normalizeResultItem(item, hazardMarkers.size);
+            if (hazardMarkers.has(normalized.id)) return hazardMarkers.get(normalized.id);
+
+            const marker = createHazardMarker(normalized);
+            hazardMarkers.set(normalized.id, marker);
+            hazardGroup.add(marker);
+
+            if (normalized.type === 'crack') crackData.push(normalized);
+            else potholeData.push(normalized);
+
+            return marker;
+        }
+
         // ==========================================
         // 4. 비동기 데이터 파이프라인
         // ==========================================
@@ -346,10 +394,48 @@
 
         function seedHazards(items) {
             potholeData.length = 0; crackData.length = 0;
+            clearHazardScene();
             items.forEach(item => {
-                if (item.type === 'crack') crackData.push(item);
-                else potholeData.push(item);
+                addHazardItem(item);
             });
+        }
+
+        const WS_BASE_URL = (() => {
+            if (window.location.protocol.startsWith('http')) {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                return `${protocol}//${window.location.host}`;
+            }
+
+            return 'ws://127.0.0.1:8000';
+        })();
+
+        let viewerSocket = null;
+
+        function connectLiveStream() {
+            try {
+                viewerSocket = new WebSocket(`${WS_BASE_URL}/ws/viewer`);
+                viewerSocket.onopen = () => {
+                    console.log('실시간 웹소켓 연결 완료');
+                };
+                viewerSocket.onmessage = (event) => {
+                    try {
+                        const payload = JSON.parse(event.data);
+                        if (payload.event === 'detection' && payload.item) {
+                            addHazardItem(payload.item);
+                        }
+                    } catch (error) {
+                        console.warn('실시간 메시지 파싱 실패:', error);
+                    }
+                };
+                viewerSocket.onerror = (error) => {
+                    console.warn('실시간 웹소켓 오류', error);
+                };
+                viewerSocket.onclose = () => {
+                    console.warn('실시간 웹소켓 연결 종료');
+                };
+            } catch (error) {
+                console.warn('실시간 웹소켓을 열 수 없습니다.', error);
+            }
         }
 
         async function initSejongSmartCity() {
@@ -571,7 +657,7 @@
         }
 
         // 실행 엔진 구동
-        initSejongSmartCity();
+        initSejongSmartCity().then(connectLiveStream);
         animate();
 
         window.addEventListener('resize', () => {
