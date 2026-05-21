@@ -196,6 +196,8 @@ num_epochs = 30
 
 fold_results = []
 
+history = {'train_loss': [], 'val_loss': []}
+
 print("학습 시작!")
 
 for fold, (train_idx, val_idx) in enumerate(kfold.split(all_rgb_paths)):
@@ -217,6 +219,9 @@ for fold, (train_idx, val_idx) in enumerate(kfold.split(all_rgb_paths)):
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
 
     best_val_loss = float('inf')
+
+    fold_train_losses = []
+    fold_val_losses = []
 
     for epoch in range(num_epochs):
         model.train()
@@ -244,6 +249,9 @@ for fold, (train_idx, val_idx) in enumerate(kfold.split(all_rgb_paths)):
         avg_val_loss = running_val_loss / len(val_loader)
         scheduler.step(avg_val_loss)
 
+        fold_train_losses.append(avg_train_loss)
+        fold_val_losses.append(avg_val_loss)
+
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             torch.save(model.state_dict(), f"/content/drive/MyDrive/DL_Project/best_model_fold{fold+1}.pth")
@@ -253,4 +261,25 @@ for fold, (train_idx, val_idx) in enumerate(kfold.split(all_rgb_paths)):
 
     fold_results.append(best_val_loss)
 
+    history['train_loss'].append(fold_train_losses)
+    history['val_loss'].append(fold_val_losses)
+
 print("학습 종료!")
+
+plt.figure(figsize=(15, 10))
+plt.suptitle('K-Fold Training & Validation Loss', fontsize=16, fontweight='bold')
+
+for i in range(5):
+    plt.subplot(2, 3, i + 1)
+    
+    plt.plot(history['train_loss'][i], label='Train Loss', color='blue', linewidth=2)
+    plt.plot(history['val_loss'][i], label='Validation Loss', color='orange', linewidth=2)
+    
+    plt.title(f'Fold {i + 1}')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.6)
+
+plt.tight_layout(rect=[0, 0, 1, 0.96])
+plt.show()
