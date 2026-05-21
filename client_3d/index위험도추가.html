@@ -201,12 +201,114 @@
         const buildingData = []; 
         const roadSegments = []; 
         let isCameraSet = false;
+        let useResultHazards = false;
+        const RESULT_JSON_URL = './result.json';
 
         const centerLat = 37.5502; const centerLng = 127.0731; // 세종대 중심
         function latLngToXZ(lat, lng) {
             const x = (lng - centerLng) * 88000;
             const z = -(lat - centerLat) * 111000; 
             return new THREE.Vector3(x, 0, z);
+        }
+
+        function toNumber(value, fallback = 0) {
+            const numberValue = Number(value);
+            return Number.isFinite(numberValue) ? numberValue : fallback;
+        }
+
+        function isValidResultItem(item) {
+            if (!item) return false;
+
+            const lat = toNumber(item.lat, NaN);
+            const lng = toNumber(item.lng, NaN);
+            const depth = toNumber(item.depth_m, NaN);
+            const confidence = toNumber(item.confidence, NaN);
+            const type = String(item.type || 'pothole').toLowerCase();
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+            if (!Number.isFinite(depth) || depth < 0) return false;
+            if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) return false;
+            if (type !== 'pothole' && type !== 'crack') return false;
+
+            return true;
+        }
+
+        function normalizeResultItem(item, index) {
+            const type = String(item.type || 'pothole').toLowerCase() === 'crack' ? 'crack' : 'pothole';
+            const position = latLngToXZ(toNumber(item.lat), toNumber(item.lng));
+            const width = Math.max(0.2, toNumber(item.width_m, 1.2));
+            const length = Math.max(0.2, toNumber(item.length_m, 1.2));
+            const depth = Math.max(0.01, toNumber(item.depth_m, 0.12));
+            const radius = Math.max(0.8, Math.max(width, length) * 0.5);
+
+            return {
+                id: String(item.id || `item-${index + 1}`),
+                type,
+                lat: toNumber(item.lat),
+                lng: toNumber(item.lng),
+                x: position.x,
+                z: position.z,
+                r: radius,
+                width,
+                length,
+                depth,
+                confidence: Math.min(1, Math.max(0, toNumber(item.confidence, 0.5))),
+                detected_at: item.detected_at || null
+            };
+        }
+
+        async function loadResultJson() {
+            try {
+                const response = await fetch(`${RESULT_JSON_URL}?t=${Date.now()}`, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`result.json 요청 실패: ${response.status}`);
+                }
+
+                const json = await response.json();
+                const list = Array.isArray(json) ? json : (Array.isArray(json.items) ? json.items : []);
+                return list.filter(isValidResultItem).map(normalizeResultItem);
+            } catch (error) {
+                console.warn('result.json 로드 실패:', error.message);
+                return [];
+            }
+        }
+
+        function seedHazardsFromResultJson(items) {
+            potholeData.length = 0;
+            crackData.length = 0;
+
+            items.forEach(item => {
+                if (item.type === 'crack') {
+                    crackData.push({
+                        id: item.id,
+                        x: item.x,
+                        z: item.z,
+                        r: item.r,
+                        width: item.width,
+                        length: item.length,
+                        depth: item.depth,
+                        confidence: item.confidence,
+                        lat: item.lat,
+                        lng: item.lng
+                    });
+                } else {
+                    potholeData.push({
+                        id: item.id,
+                        x: item.x,
+                        z: item.z,
+                        r: item.r,
+                        width: item.width,
+                        length: item.length,
+                        depth: item.depth,
+                        confidence: item.confidence,
+                        lat: item.lat,
+                        lng: item.lng
+                    });
+                }
+            });
+
+            useResultHazards = items.length > 0;
         }
 
 
@@ -286,6 +388,9 @@
         //  4. OSM 통신 및 도로/건물/파손구역 동적 생성
         
         async function fetchSejongRoads() {
+            const resultItems = await loadResultJson();
+            seedHazardsFromResultJson(resultItems);
+
             const bbox = "37.548,127.070,37.553,127.076";
             const query = `[out:json];(way["highway"](${bbox}););out geom;`;
             const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
@@ -310,21 +415,23 @@
                             // 카메라와 파손 구역은 첫 번째 큰 도로에만 1회 설정
                             if (!isCameraSet && dist > 30) {
                                 isCameraSet = true;
-                                
-                                let holePos = p1.clone().add(dir.clone().multiplyScalar(15));
-                                potholeData.push({
-                                    lat: element.geometry[i].lat,
-                                    lng: element.geometry[i].lon,
-                                    x: holePos.x,
-                                    z: holePos.z,
-                                    r: 2.5,
-                                    width: 1.8,
-                                    length: 2.0,
-                                    depth: 0.9
-                                });
 
-                                let crackPos = p1.clone().add(dir.clone().multiplyScalar(35));
-                                crackData.push({ x: crackPos.x, z: crackPos.z, r: 3.5 });
+                                if (!useResultHazards) {
+                                    let holePos = p1.clone().add(dir.clone().multiplyScalar(15));
+                                    potholeData.push({
+                                        lat: element.geometry[i].lat,
+                                        lng: element.geometry[i].lon,
+                                        x: holePos.x,
+                                        z: holePos.z,
+                                        r: 2.5,
+                                        width: 1.8,
+                                        length: 2.0,
+                                        depth: 0.9
+                                    });
+
+                                    let crackPos = p1.clone().add(dir.clone().multiplyScalar(35));
+                                    crackData.push({ x: crackPos.x, z: crackPos.z, r: 3.5 });
+                                }
 
                                 camera.position.set(p1.x, 1.8, p1.z);
                                 targetPos.set(p1.x, 1.8, p1.z);
