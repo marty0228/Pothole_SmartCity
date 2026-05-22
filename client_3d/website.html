@@ -875,14 +875,29 @@ viewer.camera.flyTo({
 });
 
 
-fetch('./result.json')
-.then(response => {
-    if(!response.ok){
-        throw new Error('result(1).json 파일을 불러오지 못했습니다.');
-    }
-    return response.json();
-})
-.then(data => {
+let damageEntities = [];
+let jsonLoadErrorShown = false;
+
+function updateDamageCounts(data, potholeCount, crackCount){
+    document.getElementById('homeDetectedCount').innerText = data.length;
+    document.getElementById('homePotholeCount').innerText = potholeCount;
+    document.getElementById('homeCrackCount').innerText = crackCount;
+
+    document.getElementById('cesiumDetectedCount').innerText = data.length;
+    document.getElementById('cesiumPotholeCount').innerText = potholeCount;
+    document.getElementById('cesiumCrackCount').innerText = crackCount;
+}
+
+function clearDamageEntities(){
+    damageEntities.forEach(entity=>{
+        viewer.entities.remove(entity);
+    });
+
+    damageEntities = [];
+}
+
+function drawDamageEntities(data){
+    clearDamageEntities();
 
     let potholeCount = 0;
     let crackCount = 0;
@@ -896,7 +911,7 @@ fetch('./result.json')
             crackCount++;
         }
 
-        viewer.entities.add({
+        const entity = viewer.entities.add({
 
             position:Cesium.Cartesian3.fromDegrees(
                 item.lng,
@@ -936,23 +951,41 @@ fetch('./result.json')
 
         });
 
+        damageEntities.push(entity);
+
     });
 
-    document.getElementById('homeDetectedCount').innerText = data.length;
-    document.getElementById('homePotholeCount').innerText = potholeCount;
-    document.getElementById('homeCrackCount').innerText = crackCount;
+    updateDamageCounts(data, potholeCount, crackCount);
+}
 
-    document.getElementById('cesiumDetectedCount').innerText = data.length;
-    document.getElementById('cesiumPotholeCount').innerText = potholeCount;
-    document.getElementById('cesiumCrackCount').innerText = crackCount;
+function loadRoadDamageJson(){
+    fetch(`./result.json?t=${Date.now()}`)
+    .then(response => {
+        if(!response.ok){
+            throw new Error('result.json 파일을 불러오지 못했습니다.');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if(!Array.isArray(data)){
+            throw new Error('result.json 데이터 형식이 배열이 아닙니다.');
+        }
 
-    console.log('result(1).json 로드 성공:', data);
+        drawDamageEntities(data);
+        console.log('result.json 갱신 성공:', data);
+    })
+    .catch(error=>{
+        console.error('JSON 로드 실패:', error);
 
-})
-.catch(error=>{
-    console.error('JSON 로드 실패:', error);
-    alert('result(1).json 파일을 읽어오지 못했습니다. HTML 파일과 JSON 파일이 같은 폴더에 있는지 확인하세요.');
-});
+        if(!jsonLoadErrorShown){
+            jsonLoadErrorShown = true;
+            alert('result.json 파일을 읽어오지 못했습니다. HTML 파일과 JSON 파일이 같은 폴더에 있는지 확인하세요.');
+        }
+    });
+}
+
+loadRoadDamageJson();
+setInterval(loadRoadDamageJson, 3000);
 
 
 </script>
