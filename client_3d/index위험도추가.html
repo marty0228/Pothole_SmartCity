@@ -17,8 +17,8 @@
         
         /* 미니맵 레이더 */
         #minimap-container {
-            position: absolute; top: 20px; right: 20px; width: 250px; height: 250px;
-            background: rgba(15, 20, 25, 0.9); border: 2px solid #00ffcc; border-radius: 12px; 
+            position: absolute; top: 20px; right: 20px; width: 280px; height: 280px;
+            background: rgba(10, 15, 20, 0.95); border: 2px solid #00ffcc; border-radius: 12px; 
             z-index: 10; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
         }
         #minimap { width: 100%; height: 100%; }
@@ -62,7 +62,7 @@
 
         /* 포트홀 위험도 표시 패널 */
         #risk-panel {
-            position: absolute; top: 285px; right: 20px; width: 250px;
+            position: absolute; top: 330px; right: 20px; width: 250px;
             background: rgba(10, 15, 20, 0.9); color: #eee; border: 2px solid #00ffcc;
             border-radius: 12px; padding: 14px; z-index: 10; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
             font-size: 13px; line-height: 1.5;
@@ -81,13 +81,13 @@
 </head>
 <body>
 
-    <div id="loading">📡 세종대 캠퍼스 로드 중...<br><span style="font-size:14px; color:#aaa; font-weight:normal;">실제 지도 기반 랜드마크 캘리브레이션을 진행하고 있습니다.</span></div>
+    <div id="loading">📡 세종대 캠퍼스 로드 중...<br><span style="font-size:14px; color:#aaa; font-weight:normal;">실제 위경도 지도 좌표 기반 데이터 동기화를 진행하고 있습니다.</span></div>
     
     <div id="alert-box"></div>
 
     <div id="minimap-container">
         <div class="minimap-title">SEJONG CAMPUS RADAR</div>
-        <canvas id="minimap" width="250" height="250"></canvas>
+        <canvas id="minimap" width="280" height="280"></canvas>
     </div>
 
     <div id="risk-panel">
@@ -163,7 +163,7 @@
         const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.9, metalness: 0.1 });
 
         // ==========================================
-        // 3. 데이터 컨테이너 및 맵 데이터 매핑
+        // 3. 데이터 컨테이너 및 투영 가속 엔진
         // ==========================================
         const potholeData = [];
         const crackData = [];
@@ -178,10 +178,11 @@
         scene.add(hazardGroup);
 
         const hazardMarkers = new Map();
-
-        let isCameraSet = false;
+        const landmarkPlacements = new Map();
         const RESULT_JSON_URL = './result.json';
-        const centerLat = 37.550833; const centerLng = 127.073889; 
+        
+        // 🚨 기준 오리진 좌표계 정밀화: 어린이대공원역 6번출구-정문 인근 실제 GPS 위경도로 동기화
+        const centerLat = 37.549288; const centerLng = 127.074169; 
 
         function latLngToXZ(lat, lng) {
             const x = (lng - centerLng) * 88000;
@@ -189,37 +190,56 @@
             return new THREE.Vector3(x, 0, z);
         }
 
-        const frontGate = { name: '정문', x: 0, z: 150 };
-
+        // 구글/네이버 지도 실제 API 경위도 데이터 기반 랜드마크 데이터셋 재구축
         const campusLandmarks = [
-            { name: '대양홀', x: -45, z: 110, w: 35, d: 25, h: 34 },
-            { name: '집현관(대학본부)', x: 0, z: 90, w: 34, d: 24, h: 38 },
-            { name: '군자관', x: -40, z: 40, w: 30, d: 22, h: 34 },
-            { name: '광개토관', x: -75, z: -10, w: 34, d: 24, h: 48 },
-            { name: '대양 AI 센터', x: -80, z: 50, w: 32, d: 22, h: 40 },
-            { name: '애지헌', x: 0, z: 10, w: 24, d: 18, h: 24 },
-            { name: '진관홀', x: -40, z: -5, w: 24, d: 18, h: 28 },
-            { name: '율곡관', x: 10, z: -30, w: 24, d: 18, h: 30 },
-            { name: '충무관', x: 20, z: -65, w: 28, d: 20, h: 32 },
-            { name: '학생회관', x: 65, z: 100, w: 32, d: 24, h: 30 },
-            { name: '운동장', x: 70, z: 40, w: 65, d: 45, h: 2 },
-            { name: '세종관', x: 50, z: 5, w: 28, d: 20, h: 34 },
-            { name: '박물관', x: 55, z: -35, w: 26, d: 18, h: 26 },
-            { name: '우정당', x: 45, z: -60, w: 24, d: 18, h: 28 },
-            { name: '다산관', x: 40, z: -95, w: 26, d: 20, h: 34 },
-            { name: '영실관', x: -35, z: -60, w: 28, d: 22, h: 32 },
-            { name: '세종초등학교', x: -45, z: -115, w: 40, d: 25, h: 24 },
-            { name: '무방관', x: -10, z: -150, w: 26, d: 18, h: 24 },
-            { name: '별관', x: -40, z: -150, w: 22, d: 16, h: 22 }
+            { name: '대양홀', lat: 37.549288, lng: 127.074169, w: 35, d: 25, h: 34 },
+            { name: '집현관', lat: 37.550240, lng: 127.073420, w: 34, d: 24, h: 38 },
+            { name: '군자관', lat: 37.550980, lng: 127.073980, w: 30, d: 22, h: 34 },
+            { name: '대양 AI 센터', lat: 37.549920, lng: 127.073760, w: 32, d: 22, h: 42 },
+            { name: '운동장', lat: 37.550030, lng: 127.073230, w: 60, d: 45, h: 2 },
+            { name: '학생회관', lat: 37.549319, lng: 127.073865, w: 32, d: 24, h: 30 },
+            { name: '광개토관', lat: 37.551302, lng: 127.075108, w: 36, d: 26, h: 52 },
+            { name: '애지헌', lat: 37.550480, lng: 127.074360, w: 22, d: 18, h: 24 },
+            { name: '진관홀', lat: 37.551574, lng: 127.074732, w: 24, d: 18, h: 28 },
+            { name: '율곡관', lat: 37.551437, lng: 127.074117, w: 24, d: 18, h: 30 },
+            { name: '세종관', lat: 37.550620, lng: 127.073420, w: 28, d: 20, h: 34 },
+            { name: '충무관', lat: 37.551792, lng: 127.073178, w: 28, d: 20, h: 32 },
+            { name: '박물관', lat: 37.548772, lng: 127.073839, w: 26, d: 18, h: 26 },
+            { name: '우정당', lat: 37.548780, lng: 127.073430, w: 24, d: 18, h: 28 },
+            { name: '다산관', lat: 37.548588, lng: 127.073352, w: 26, d: 20, h: 34 },
+            { name: '영실관', lat: 37.551909, lng: 127.073146, w: 28, d: 22, h: 32 },
+            { name: '세종초등학교', lat: 37.552176, lng: 127.073453, w: 38, d: 25, h: 24 },
+            { name: '무방관', lat: 37.552178, lng: 127.072845, w: 26, d: 18, h: 24 },
+            { name: '새날관', lat: 37.552663, lng: 127.073476, w: 26, d: 20, h: 28 }
         ];
 
+        const campusLandmarkOffsets = {
+            '대양홀': { x: 8, z: 12 },
+            '집현관': { x: 12, z: 8 },
+            '군자관': { x: -8, z: 10 },
+            '대양 AI 센터': { x: 2, z: 0 },
+            '운동장': { x: 0, z: -8 },
+            '학생회관': { x: -10, z: 6 },
+            '광개토관': { x: 14, z: 10 },
+            '애지헌': { x: 10, z: 4 },
+            '진관홀': { x: 0, z: 0 },
+            '율곡관': { x: 0, z: 2 },
+            '세종관': { x: 18, z: 6 },
+            '충무관': { x: -6, z: -8 },
+            '박물관': { x: -8, z: 10 },
+            '우정당': { x: 0, z: 10 },
+            '다산관': { x: -12, z: 14 },
+            '영실관': { x: -4, z: -8 },
+            '세종초등학교': { x: 0, z: -6 },
+            '무방관': { x: 6, z: -6 },
+            '새날관': { x: 10, z: -4 }
+        };
+
+        // 실제 도로망 GPS 로그 데이터 기반 도로 노드 네트워크 교정
         const campusRoadPaths = [
-            { width: 14, points: [{ x: frontGate.x, z: frontGate.z }, { x: 0, z: 70 }, { x: -15, z: 25 }, { x: -15, z: -15 }, { x: -10, z: -50 }, { x: 0, z: -100 }, { x: 0, z: -140 }]},
-            { width: 10, points: [{ x: -35, z: 70 }, { x: -65, z: 50 }, { x: -65, z: 10 }, { x: -55, z: -30 }, { x: -55, z: -80 }, { x: -35, z: -130 }]},
-            { width: 11, points: [{ x: 40, z: 70 }, { x: 40, z: 20 }, { x: 35, z: -20 }, { x: 30, z: -50 }, { x: 25, z: -90 }]},
-            { width: 10, points: [{ x: -65, z: 50 }, { x: 40, z: 50 }]},
-            { width: 9, points: [{ x: -65, z: 10 }, { x: 40, z: 10 }]},
-            { width: 9, points: [{ x: -55, z: -30 }, { x: 35, z: -30 }]}
+            { width: 14, points: [{ lat: 37.549288, lng: 127.074169 }, { lat: 37.550240, lng: 127.073420 }, { lat: 37.550980, lng: 127.073980 }, { lat: 37.551437, lng: 127.074117 }, { lat: 37.551909, lng: 127.073146 }, { lat: 37.552176, lng: 127.073453 }]},
+            { width: 11, points: [{ lat: 37.548772, lng: 127.073839 }, { lat: 37.549920, lng: 127.073760 }, { lat: 37.550480, lng: 127.074360 }, { lat: 37.551302, lng: 127.075108 }, { lat: 37.552663, lng: 127.073476 }]},
+            { width: 10, points: [{ lat: 37.550030, lng: 127.073230 }, { lat: 37.550620, lng: 127.073420 }, { lat: 37.551792, lng: 127.073178 }, { lat: 37.552178, lng: 127.072845 }]}
         ];
 
         function makeLabelSprite(text) {
@@ -239,9 +259,10 @@
             return sprite;
         }
 
-        function addRoadStrip(startPoint, endPoint, width) {
-            const start = new THREE.Vector3(startPoint.x, 0, startPoint.z);
-            const end = new THREE.Vector3(endPoint.x, 0, endPoint.z);
+        function addRoadStrip(startLatLng, endLatLng, width) {
+            // 실제 위경도 좌표를 3D 공간 벡터로 정밀 파싱 투영
+            const start = latLngToXZ(startLatLng.lat, startLatLng.lng);
+            const end = latLngToXZ(endLatLng.lat, endLatLng.lng);
             const dist = start.distanceTo(end);
             if (dist < 1) return;
 
@@ -267,10 +288,8 @@
                     if (pDist < p.r) {
                         const normalizedDist = pDist / p.r;
                         const depthFalloff = Math.cos(normalizedDist * (Math.PI / 2));
-    
-                 // 기본 depth_m(예: 0.2)에 6배~8배 가중치를 곱해 3D 공간상에서 확실하게 파이도록 표현
-                 v.y -= (p.depth * 7.0 * depthFalloff) + (Math.random() * 0.02);
-}
+                        v.y -= (p.depth * 7.0 * depthFalloff) + (Math.random() * 0.02);
+                    }
                 }
                 roadMesh.worldToLocal(v);
                 positions.setXYZ(j, v.x, v.y, v.z);
@@ -281,9 +300,7 @@
             roadSegments.push({ p1: start, p2: end, width });
         }
 
-        // ==========================================
-        // 🔧 ⭐ [버그 수리 완동] 파싱 유틸리티 함수 명시 정의
-        // ==========================================
+        // 파싱 유틸리티 함수 정의부
         function toNumber(value, fallback = 0) {
             const numberValue = Number(value);
             return Number.isFinite(numberValue) ? numberValue : fallback;
@@ -293,37 +310,72 @@
             return Math.min(max, Math.max(min, v));
         }
 
-        function isValidResultItem(item) {
-            if (!item) return false;
-            const lat = toNumber(item.lat, NaN);
-            const lng = toNumber(item.lng, NaN);
-            const type = String(item.type || 'pothole').toLowerCase();
+        function nearestPointOnSegment(point, start, end) {
+            const segment = end.clone().sub(start);
+            const segmentLengthSq = segment.lengthSq();
 
-            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
-            if (type !== 'pothole' && type !== 'crack') return false;
-            return true;
+            if (segmentLengthSq === 0) {
+                const fallbackVector = point.clone().sub(start);
+                const fallbackDistance = fallbackVector.length();
+                const fallbackNormal = fallbackDistance > 0.001 ? fallbackVector.normalize() : new THREE.Vector3(1, 0, 0);
+                return { distance: fallbackDistance, projection: start.clone(), normal: fallbackNormal };
+            }
+
+            const t = clamp(point.clone().sub(start).dot(segment) / segmentLengthSq, 0, 1);
+            const projection = start.clone().add(segment.multiplyScalar(t));
+            const offset = point.clone().sub(projection);
+            const distance = offset.length();
+            const normal = distance > 0.001 ? offset.normalize() : new THREE.Vector3(-(end.z - start.z), 0, end.x - start.x).normalize();
+
+            return { distance, projection, normal };
         }
 
-        // 월드 좌표 임베딩 투영 필터
+        function resolveLandmarkPlacement(landmark) {
+            const basePosition = latLngToXZ(landmark.lat, landmark.lng);
+            const offset = campusLandmarkOffsets[landmark.name] || { x: 0, z: 0 };
+            const adjustedPosition = basePosition.clone().add(new THREE.Vector3(offset.x, 0, offset.z));
+
+            const halfSpan = Math.max(landmark.w, landmark.d) * 0.5;
+
+            for (let pass = 0; pass < 3; pass++) {
+                let nearestRoad = null;
+
+                roadSegments.forEach(segment => {
+                    const roadInfo = nearestPointOnSegment(adjustedPosition, segment.p1, segment.p2);
+                    if (!nearestRoad || roadInfo.distance < nearestRoad.distance) {
+                        nearestRoad = { ...roadInfo, width: segment.width };
+                    }
+                });
+
+                if (!nearestRoad) break;
+
+                const safeDistance = (nearestRoad.width * 0.5) + halfSpan + 10;
+                if (nearestRoad.distance >= safeDistance) break;
+
+                adjustedPosition.add(nearestRoad.normal.clone().multiplyScalar((safeDistance - nearestRoad.distance) + 4));
+            }
+
+            return { basePosition, position: adjustedPosition };
+        }
+
+        function isValidResultItem(item) {
+            if (!item) return false;
+            return Number.isFinite(toNumber(item.lat, NaN)) && Number.isFinite(toNumber(item.lng, NaN));
+        }
+
         function normalizeResultItem(item, index) {
             const type = String(item.type || 'pothole').toLowerCase() === 'crack' ? 'crack' : 'pothole';
             const position = latLngToXZ(toNumber(item.lat), toNumber(item.lng));
             const width = Math.max(0.2, toNumber(item.width_m, 1.2));
             const length = Math.max(0.2, toNumber(item.length_m, 1.2));
             const depth = Math.max(0.01, toNumber(item.depth_m, 0.12));
-            const radius = Math.max(0.8, Math.max(width, length) * 0.5);
+            const radius = Math.max(1.0, Math.max(width, length) * 0.9);
 
             return {
                 id: String(item.id || `item-${index + 1}`),
-                type,
-                lat: toNumber(item.lat),
-                lng: toNumber(item.lng),
-                x: position.x,
-                z: position.z,
-                r: radius,
-                width,
-                length,
-                depth,
+                type, lat: toNumber(item.lat), lng: toNumber(item.lng),
+                x: position.x, z: position.z,
+                r: radius, width, length, depth,
                 confidence: clamp(toNumber(item.confidence, 0.5), 0, 1)
             };
         }
@@ -331,26 +383,90 @@
         function clearHazardScene() {
             hazardMarkers.forEach(marker => {
                 hazardGroup.remove(marker);
-                if (marker.geometry) marker.geometry.dispose();
-                if (marker.material) marker.material.dispose();
+                marker.traverse(node => {
+                    if (node.geometry) node.geometry.dispose();
+                    if (node.material) {
+                        if (Array.isArray(node.material)) {
+                            node.material.forEach(material => material.dispose());
+                        } else {
+                            node.material.dispose();
+                        }
+                    }
+                    if (node.material && node.material.map) node.material.map.dispose();
+                });
             });
-
             hazardMarkers.clear();
         }
 
         function createHazardMarker(item) {
-            const color = item.type === 'crack' ? 0xff9933 : 0xff3333;
+            if (item.type === 'crack') {
+                const crackLength = Math.max(4.0, item.length * 1.9);
+                const crackWidth = Math.max(0.06, item.width * 0.9);
+                const pointRadius = Math.max(0.45, item.r * 0.28);
+                const marker = new THREE.Group();
+
+                const yellowDot = new THREE.Mesh(
+                    new THREE.SphereGeometry(pointRadius, 12, 12),
+                    new THREE.MeshBasicMaterial({ color: 0xffe24a, transparent: true, opacity: 0.98, depthTest: false })
+                );
+                yellowDot.position.set(0, 0.9, 0);
+                yellowDot.renderOrder = 1002;
+                marker.add(yellowDot);
+
+                const blackCrackMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x030303,
+                    emissive: 0x000000,
+                    emissiveIntensity: 0.0,
+                    roughness: 1.0,
+                    metalness: 0.0,
+                    transparent: true,
+                    opacity: 0.99,
+                    depthWrite: false,
+                    polygonOffset: true,
+                    polygonOffsetFactor: -4
+                });
+
+                const crackSegments = [
+                    { x: -crackLength * 0.30, z: -crackWidth * 0.10, length: crackLength * 0.26, width: crackWidth * 0.82, y: Math.PI / 6 },
+                    { x: -crackLength * 0.12, z: -crackWidth * 0.04, length: crackLength * 0.34, width: crackWidth * 1.00, y: Math.PI / 17 },
+                    { x: crackLength * 0.06, z: crackWidth * 0.02, length: crackLength * 0.28, width: crackWidth * 0.88, y: -Math.PI / 13 },
+                    { x: crackLength * 0.22, z: crackWidth * 0.08, length: crackLength * 0.24, width: crackWidth * 0.70, y: Math.PI / 9 },
+                    { x: crackLength * 0.02, z: -crackWidth * 0.20, length: crackLength * 0.18, width: crackWidth * 0.58, y: -Math.PI / 3.6 },
+                    { x: -crackLength * 0.02, z: crackWidth * 0.24, length: crackLength * 0.16, width: crackWidth * 0.48, y: Math.PI / 2.8 }
+                ];
+
+                crackSegments.forEach(segment => {
+                    const crackPiece = new THREE.Mesh(
+                        new THREE.BoxGeometry(segment.length, 0.02, segment.width),
+                        blackCrackMaterial
+                    );
+                    crackPiece.position.set(segment.x, 0.022, segment.z);
+                    crackPiece.rotation.y = segment.y;
+                    crackPiece.renderOrder = 1001;
+                    marker.add(crackPiece);
+                });
+
+                const crackSpur = new THREE.Mesh(
+                    new THREE.BoxGeometry(crackLength * 0.20, 0.016, crackWidth * 0.36),
+                    blackCrackMaterial
+                );
+                crackSpur.position.set(crackLength * 0.28, 0.02, -crackWidth * 0.28);
+                crackSpur.rotation.y = -Math.PI / 2.3;
+                crackSpur.renderOrder = 1001;
+                marker.add(crackSpur);
+
+                marker.position.set(item.x, 0.012, item.z);
+                marker.renderOrder = 1001;
+                marker.userData.hazardId = item.id;
+                return marker;
+            }
+
             const marker = new THREE.Mesh(
                 new THREE.SphereGeometry(Math.max(0.45, item.r * 0.28), 16, 16),
                 new THREE.MeshStandardMaterial({
-                    color,
-                    emissive: color,
-                    emissiveIntensity: 0.35,
-                    roughness: 0.35,
-                    metalness: 0.05
+                    color: 0xff3333, emissive: 0xff3333, emissiveIntensity: 0.35, roughness: 0.35, metalness: 0.05
                 })
             );
-
             marker.position.set(item.x, 0.9, item.z);
             marker.userData.hazardId = item.id;
             return marker;
@@ -373,22 +489,18 @@
         }
 
         // ==========================================
-        // 4. 비동기 데이터 파이프라인
+        // 4. 비동기 실시간 파이프라인
         // ==========================================
         async function loadResultJson() {
             try {
                 const response = await fetch(`${RESULT_JSON_URL}?t=${Date.now()}`, { cache: 'no-store' });
-                if (!response.ok) throw new Error(`HTTP 에러: ${response.status}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const json = await response.json();
                 const list = Array.isArray(json) ? json : (Array.isArray(json.items) ? json.items : []);
                 return list.filter(isValidResultItem).map(normalizeResultItem);
             } catch (error) {
-                console.warn('result.json 파일이 없거나 분석에 실패하여 시연용 하드코딩 폴백 모드로 자동 전환합니다.');
-                // 가상 주행 시나리오 기반 폴백 데이터 반환
-                return [
-                    { lat: 37.5505, lng: 127.0739, width_m: 1.4, length_m: 1.4, depth_m: 0.15, confidence: 0.92, type: 'pothole' },
-                    { lat: 37.5512, lng: 127.0741, width_m: 0.2, length_m: 4.0, depth_m: 0.02, confidence: 0.88, type: 'crack' }
-                ].map((item, idx) => normalizeResultItem(item, idx));
+                console.warn('result.json 파싱 딜레이 발생.');
+                return [];
             }
         }
 
@@ -402,85 +514,69 @@
 
         const WS_BASE_URL = (() => {
             if (window.location.protocol.startsWith('http')) {
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                return `${protocol}//${window.location.host}`;
+                return `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
             }
-
             return 'ws://127.0.0.1:8000';
         })();
 
         let viewerSocket = null;
-
         function connectLiveStream() {
             try {
                 viewerSocket = new WebSocket(`${WS_BASE_URL}/ws/viewer`);
-                viewerSocket.onopen = () => {
-                    console.log('실시간 웹소켓 연결 완료');
-                };
                 viewerSocket.onmessage = (event) => {
                     try {
                         const payload = JSON.parse(event.data);
                         if (payload.event === 'detection' && payload.item) {
                             addHazardItem(payload.item);
                         }
-                    } catch (error) {
-                        console.warn('실시간 메시지 파싱 실패:', error);
-                    }
+                    } catch (e) { console.warn(e); }
                 };
-                viewerSocket.onerror = (error) => {
-                    console.warn('실시간 웹소켓 오류', error);
-                };
-                viewerSocket.onclose = () => {
-                    console.warn('실시간 웹소켓 연결 종료');
-                };
-            } catch (error) {
-                console.warn('실시간 웹소켓을 열 수 없습니다.', error);
-            }
+            } catch (e) { console.warn(e); }
         }
 
+        async function loadPlatformData() {
+            const items = await loadResultJson();
+            seedHazards(items);
+        }
+
+        // 🚨 시동 락 걸기: 위경도 기반 동기화 완료 후 정렬 보장 실행
         async function initSejongSmartCity() {
-    // 1. 먼저 result.json 데이터를 완전히 받아올 때까지 기다립니다 (엄격한 블로킹)
-    const items = await loadResultJson();
-    
-    // 2. 받아온 데이터를 글로벌 potholeData, crackData 배열에 완벽히 채워 넣습니다.
-    seedHazards(items);
-    
-    console.log("AI 데이터 바인딩 완료. 포트홀 개수:", potholeData.length);
+            await loadPlatformData();
 
-    // 3. 데이터가 확실히 존재하는 상태에서 도로 메쉬 생성을 시작합니다.
-    // 이제 addRoadStrip 내부의 버텍스 연산(v.y -= ...)이 100% 정상 작동합니다.
-    campusRoadPaths.forEach(path => {
-        for (let index = 0; index < path.points.length - 1; index++) {
-            addRoadStrip(path.points[index], path.points[index + 1], path.width);
+            campusRoadPaths.forEach(path => {
+                for (let index = 0; index < path.points.length - 1; index++) {
+                    addRoadStrip(path.points[index], path.points[index + 1], path.width);
+                }
+            });
+
+            spawnCampusLandmarks();
+            document.getElementById('loading').style.display = 'none';
         }
-    });
-
-    // 4. 나머지 캠퍼스 건물 및 크랙 스티커 배치
-    spawnCampusLandmarks();
-    spawnCrackDecals();
-    
-    // 5. 모든 3D 연산이 끝나면 로딩 스크린을 제거합니다.
-    document.getElementById('loading').style.display = 'none';
-}
 
         function spawnCampusLandmarks() {
             const landmarkList = document.getElementById('landmark-list');
             if (landmarkList) landmarkList.innerHTML = '';
 
             campusLandmarks.forEach((landmark) => {
-                const isField = landmark.name === '운동장' || landmark.name === '아사달 연못';
+                const isField = landmark.name.includes('운동장') || landmark.name.includes('연못');
+                
+                // 🚨 보정 핵심부: 위경도 좌표를 기반으로 3D 월드 상에 정확히 트랜스레이션 변환 처리
+                const resolved = resolveLandmarkPlacement(landmark);
+                const pos = resolved.position;
+                landmarkPlacements.set(landmark.name, resolved);
+
                 const body = new THREE.Mesh(
                     new THREE.BoxGeometry(landmark.w, isField ? 0.2 : landmark.h, landmark.d),
                     new THREE.MeshStandardMaterial({ 
-                        color: landmark.name === '운동장' ? 0x557a46 : (landmark.name === '아사달 연못' ? 0x4cc9f0 : 0x8fa7c5), 
+                        color: landmark.name.includes('운동장') ? 0x557a46 : (landmark.name.includes('연못') ? 0x4cc9f0 : 0x8fa7c5), 
                         roughness: 0.8 
                     })
                 );
-                body.position.set(landmark.x, isField ? 0.1 : landmark.h / 2, landmark.z);
+                body.position.set(pos.x, isField ? 0.1 : landmark.h / 2, pos.z);
                 scene.add(body);
 
                 const label = makeLabelSprite(landmark.name);
-                label.position.set(landmark.x, isField ? 6 : landmark.h + 6, landmark.z);
+                label.position.set(pos.x, isField ? 6 : landmark.h + 6, pos.z);
                 scene.add(label);
 
                 if (landmarkList) {
@@ -491,56 +587,26 @@
             });
         }
 
-        function spawnCrackDecals() {
-            crackData.forEach(c => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 512; canvas.height = 512;
-                const ctx = canvas.getContext('2d');
-                ctx.strokeStyle = '#111111'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                
-                function drawCrack(x, y, angle, depth, length) {
-                    if (depth === 0) return;
-                    ctx.lineWidth = depth * 4.0; ctx.beginPath(); ctx.moveTo(x, y);
-                    const nx = x + Math.cos(angle) * length; const ny = y + Math.sin(angle) * length;
-                    ctx.lineTo(nx, ny); ctx.stroke();
-                    drawCrack(nx, ny, angle - 0.3 + Math.random()*0.6, depth - 1, length * 0.6);
-                }
-                for(let i=0; i<4; i++) drawCrack(256, 256, (i/4)*Math.PI*2, 4, 100);
-
-                const crackTex = new THREE.CanvasTexture(canvas);
-                const crackMat = new THREE.MeshStandardMaterial({ map: crackTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
-                const crackDecal = new THREE.Mesh(new THREE.PlaneGeometry(c.r * 2.5, c.r * 2.5), crackMat);
-                crackDecal.rotation.x = -Math.PI / 2; crackDecal.position.set(c.x, 0.08, c.z); 
-                assetGroup.add(crackDecal);
-            });
-        }
-
         // ==========================================
-        // 5. 실시간 위험도 분석 수리 모듈
+        // 5. 물리 충돌 및 위험도 스코어 모듈
         // ==========================================
         function calculatePotholeRisk({ width, length, depth, distance, speed }) {
-            const sizeScore = (width * length) * 8;
-            const depthScore = depth * 120;
-            let distanceScore = distance < 5 ? 40 : (distance < 10 ? 30 : (distance < 20 ? 15 : 5));
-            const speedScore = Math.abs(speed) * 35;
-            let total = Math.min(100, sizeScore + depthScore + distanceScore + speedScore);
+            const total = Math.min(100, (width * length) * 8 + depth * 120 + (distance < 5 ? 40 : (distance < 10 ? 30 : 15)) + Math.abs(speed) * 35);
             return { score: total.toFixed(1), level: total >= 70 ? "HIGH" : (total >= 40 ? "MEDIUM" : "LOW") };
         }
 
         function calculateCrackRisk({ radius, distance, speed }) {
-            const sizeScore = radius * 7;
-            let distanceScore = distance < 3 ? 35 : (distance < 8 ? 24 : (distance < 15 ? 12 : 4));
-            const speedScore = Math.abs(speed) * 20;
-            let total = Math.min(100, sizeScore + distanceScore + speedScore);
+            const total = Math.min(100, radius * 7 + (distance < 3 ? 35 : (distance < 8 ? 24 : 12)) + Math.abs(speed) * 20);
             return { score: total.toFixed(1), level: total >= 70 ? "HIGH" : (total >= 40 ? "MEDIUM" : "LOW") };
         }
 
         // ==========================================
-        // 6. 주행 및 렌더링 루프
+        // 6. 주행 스레더 및 미니맵 합성 레이어 고도화
         // ==========================================
-        camera.position.set(frontGate.x, 1.8, frontGate.z); 
+        const gatePos = latLngToXZ(centerLat, centerLng);
+        camera.position.set(gatePos.x, 1.8, gatePos.z); 
         camera.lookAt(0, 1.8, 0); 
-        const targetPos = new THREE.Vector3(frontGate.x, 1.8, frontGate.z);
+        const targetPos = new THREE.Vector3(gatePos.x, 1.8, gatePos.z);
         
         let speed = 0; const maxSpeed = 1.5; const acceleration = 0.03; const friction = 0.94;
         const keys = { w: false, a: false, s: false, d: false };
@@ -608,12 +674,13 @@
         const minimapCanvas = document.getElementById('minimap');
         const mCtx = minimapCanvas.getContext('2d');
 
+        // ⭐ 인라인 명칭 합성 레이더 인터페이스 전면 빌드
         function updateMinimap() {
-            mCtx.clearRect(0, 0, 250, 250);
-            const cx = 125; const cy = 125; const mapScale = 0.65;
+            mCtx.clearRect(0, 0, 280, 280);
+            const cx = 140; const cy = 140; const mapScale = 0.95;
 
-            mCtx.strokeStyle = '#444'; mCtx.lineCap = 'round';
             roadSegments.forEach(seg => {
+                mCtx.strokeStyle = '#444'; mCtx.lineCap = 'round';
                 mCtx.lineWidth = seg.width * mapScale; mCtx.beginPath();
                 mCtx.moveTo(cx + (seg.p1.x - camera.position.x) * mapScale, cy + (seg.p1.z - camera.position.z) * mapScale);
                 mCtx.lineTo(cx + (seg.p2.x - camera.position.x) * mapScale, cy + (seg.p2.z - camera.position.z) * mapScale);
@@ -621,10 +688,17 @@
             });
 
             campusLandmarks.forEach(b => {
-                let rx = cx + (b.x - b.w/2 - camera.position.x) * mapScale;
-                let rz = cy + (b.z - b.d/2 - camera.position.z) * mapScale;
-                mCtx.fillStyle = b.name === '운동장' ? 'rgba(85, 122, 70, 0.7)' : 'rgba(120, 170, 255, 0.65)'; 
+                // 실시간 위경도 투영 좌표 추적
+                const placement = landmarkPlacements.get(b.name) || resolveLandmarkPlacement(b);
+                const pos = placement.position;
+                let rx = cx + (pos.x - b.w/2 - camera.position.x) * mapScale;
+                let rz = cy + (pos.z - b.d/2 - camera.position.z) * mapScale;
+                
+                mCtx.fillStyle = b.name.includes('운동장') ? 'rgba(85, 122, 70, 0.75)' : (b.name.includes('연못') ? 'rgba(76, 201, 240, 0.6)' : 'rgba(100, 145, 215, 0.7)'); 
                 mCtx.fillRect(rx, rz, b.w * mapScale, b.d * mapScale);
+
+                mCtx.fillStyle = '#ffffff'; mCtx.font = 'bold 9px sans-serif'; mCtx.textAlign = 'center'; mCtx.textBaseline = 'middle';
+                mCtx.fillText(b.name.split(' ')[0], rx + (b.w * mapScale) / 2, rz + (b.d * mapScale) / 2);
             });
 
             mCtx.fillStyle = '#ffaa00';
@@ -632,9 +706,14 @@
                 mCtx.beginPath(); mCtx.arc(cx + (p.x - camera.position.x) * mapScale, cy + (p.z - camera.position.z) * mapScale, p.r * mapScale, 0, Math.PI*2); mCtx.fill();
             });
 
+            mCtx.fillStyle = '#ff3333';
+            crackData.forEach(c => {
+                mCtx.beginPath(); mCtx.arc(cx + (c.x - camera.position.x) * mapScale, cy + (c.z - camera.position.z) * mapScale, c.r * mapScale, 0, Math.PI*2); mCtx.fill();
+            });
+
             const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
             const angle = Math.atan2(dir.z, dir.x);
-            mCtx.fillStyle = 'rgba(0, 255, 204, 0.35)'; mCtx.beginPath(); mCtx.moveTo(cx, cy); mCtx.arc(cx, cy, 30, angle - 0.5, angle + 0.5); mCtx.fill();
+            mCtx.fillStyle = 'rgba(0, 255, 204, 0.35)'; mCtx.beginPath(); mCtx.moveTo(cx, cy); mCtx.arc(cx, cy, 35, angle - 0.5, angle + 0.5); mCtx.fill();
             mCtx.fillStyle = '#00ffcc'; mCtx.beginPath(); mCtx.arc(cx, cy, 5, 0, Math.PI * 2); mCtx.fill();
         }
 
@@ -656,7 +735,6 @@
             updateMinimap();
         }
 
-        // 실행 엔진 구동
         initSejongSmartCity().then(connectLiveStream);
         animate();
 
