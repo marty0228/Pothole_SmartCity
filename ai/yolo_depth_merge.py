@@ -156,6 +156,7 @@ with torch.no_grad():
 ensemble_pred = ensemble_pred / 5.0
 pred_map = ensemble_pred.squeeze().cpu().numpy()
 
+#현재 사진 기준 앞 사다리꼴 모양이 도로라고 가정 후 해당 사다리꼴 내에서의 중앙값이 정상 도로의 픽셀이라고 결정
 mask = Image.new('L', (256, 256), 0)
 draw = ImageDraw.Draw(mask)
 
@@ -178,9 +179,10 @@ pred_map_resized = cv2.resize(pred_map, (orig_w, orig_h))
 final_reports = []
 
 now = datetime.now()
-date_str = now.strftime("%Y%m%d") # 예: 20260521
+date_str = now.strftime("%Y%m%d")
 iso_time_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
+#YOLO 모델에서 찾은 파손된 도로들의 위치
 for result in detections:
     boxes = result.boxes.xyxy.cpu().numpy()
     confs = result.boxes.conf.cpu().numpy() 
@@ -194,6 +196,7 @@ for result in detections:
         cls_id = int(class_ids[idx])
         raw_type_name = class_names_dict[cls_id] 
         
+        #파손 도로의 명칭
         if raw_type_name.lower() == 'pothole':
             final_type_name = 'pothole'
             prefix = 'ph'
@@ -204,7 +207,10 @@ for result in detections:
         x, y = int(x1), int(y1)
         w, h = int(x2 - x1), int(y2 - y1)
 
+        #파손 도로의 위치만 보도록 설정
         pothole_region = pred_map_resized[y:y+h, x:x+w]
+
+        #파손 도로의 깊이 계산
         depth_m = calculate_real_depth(d_road, pothole_region)
 
         pothole_id = f"{prefix}-{date_str}-{str(len(final_reports) + 1).zfill(3)}"
@@ -223,7 +229,7 @@ for result in detections:
         
         final_reports.append(report_dict)
 
-print("\n📊 [최종 앙상블 포트홀 분석 리포트]")
+print("최종 파손 도로 탐지 & 깊이")
 for report in final_reports:
     print(report)
 
