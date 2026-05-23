@@ -181,6 +181,8 @@ final_reports = []
 now = datetime.now()
 date_str = now.strftime("%Y%m%d")
 iso_time_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+photo_lat = float(os.getenv("PHOTO_LAT", "37.551302"))
+photo_lng = float(os.getenv("PHOTO_LNG", "127.075108"))
 
 #YOLO 모델에서 찾은 파손된 도로들의 위치
 for result in detections:
@@ -218,8 +220,8 @@ for result in detections:
         report_dict = {
             "id": pothole_id,
             "type": final_type_name,
-            "lat": 37.551302, 
-            "lng": 127.075108,
+            "lat": photo_lat, 
+            "lng": photo_lng,
             "width_m": w,       
             "length_m": h,      
             "depth_m": round(depth_m, 3),

@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -166,7 +167,7 @@ class RealtimeDetector:
         roi_pixels = pred_map[mask == 255]
         return float(np.median(roi_pixels)) if roi_pixels.size > 0 else 0.0
 
-    def infer_frame(self, frame_bytes: bytes) -> InferenceResult:
+    def infer_frame(self, frame_bytes: bytes, lat: float, lng: float, captured_at: str | None = None) -> InferenceResult:
         decoded = np.frombuffer(frame_bytes, dtype=np.uint8)
         frame_bgr = cv2.imdecode(decoded, cv2.IMREAD_COLOR)
         if frame_bgr is None:
@@ -182,7 +183,7 @@ class RealtimeDetector:
         detections = self.yolo(frame_rgb, conf=0.25, imgsz=640, iou=0.7, verbose=False)
         items: list[dict[str, Any]] = []
         date_str = datetime.now().strftime("%Y%m%d")
-        iso_time_str = _now_iso()
+        iso_time_str = captured_at or _now_iso()
 
         for result in detections:
             boxes = result.boxes.xyxy.cpu().numpy()
@@ -216,8 +217,8 @@ class RealtimeDetector:
                 items.append({
                     "id": pothole_id,
                     "type": final_type_name,
-                    "lat": 37.551302,
-                    "lng": 127.075108,
+                    "lat": round(float(lat), 7),
+                    "lng": round(float(lng), 7),
                     "width_m": float(w),
                     "length_m": float(h),
                     "depth_m": round(depth_m, 3),
@@ -231,6 +232,34 @@ class RealtimeDetector:
 app = FastAPI(title="Pothole SmartCity Realtime API")
 detector = RealtimeDetector()
 viewer_clients: set[WebSocket] = set()
+
+
+def _decode_ingest_payload(message_text: str) -> tuple[bytes, float, float, str | None]:
+    payload = json.loads(message_text)
+    if not isinstance(payload, dict):
+        raise ValueError("ingest payload must be a JSON object")
+
+    if payload.get("event") != "frame":
+        raise ValueError("ingest payload event must be 'frame'")
+
+    image_value = payload.get("image")
+    if not isinstance(image_value, str) or not image_value:
+        raise ValueError("ingest payload image is required")
+
+    lat_value = float(payload.get("lat"))
+    lng_value = float(payload.get("lng"))
+    if not np.isfinite(lat_value) or not np.isfinite(lng_value):
+        raise ValueError("ingest payload lat/lng must be finite numbers")
+
+    captured_at = payload.get("captured_at")
+    captured_at_text = str(captured_at) if captured_at else None
+
+    try:
+        frame_bytes = base64.b64decode(image_value, validate=True)
+    except Exception as exc:
+        raise ValueError("ingest payload image must be valid base64 JPEG data") from exc
+
+    return frame_bytes, lat_value, lng_value, captured_at_text
 
 
 async def broadcast(payload: dict[str, Any]) -> None:
@@ -272,9 +301,15 @@ async def ingest_socket(websocket: WebSocket) -> None:
 
     try:
         while True:
-            frame_bytes = await websocket.receive_bytes()
+            message = await websocket.receive()
+
+            if message.get("text") is None:
+                await websocket.send_text(json.dumps({"event": "error", "message": "send JSON text payload with image, lat, and lng"}, ensure_ascii=False))
+                continue
+
             try:
-                inference = detector.infer_frame(frame_bytes)
+                frame_bytes, lat, lng, captured_at = _decode_ingest_payload(message["text"])
+                inference = detector.infer_frame(frame_bytes, lat=lat, lng=lng, captured_at=captured_at)
             except Exception as exc:
                 await websocket.send_text(json.dumps({"event": "error", "message": str(exc)}, ensure_ascii=False))
                 continue
