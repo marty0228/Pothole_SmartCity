@@ -18,6 +18,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 WEIGHTS_PATH = BASE_DIR / "weights" / "best.pt"
 DEFAULT_DEPTH_MODEL_DIR = BASE_DIR / "best_model"
 
+RESULT_FILE_PATH = BASE_DIR / 'result.json'
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("pothole-realtime")
 
@@ -276,6 +278,25 @@ async def ingest_socket(websocket: WebSocket) -> None:
             except Exception as exc:
                 await websocket.send_text(json.dumps({"event": "error", "message": str(exc)}, ensure_ascii=False))
                 continue
+
+            if inference.items:
+                existing_data = []
+
+                if RESULT_FILE_PATH.exists() and RESULT_FILE_PATH.stat().st_size > 0:
+                    try:
+                        with open(RESULT_FILE_PATH, "r", encoding="utf-8") as f:
+                            existing_data = json.load(f)
+                    except Exception as e:
+                        logger.error(f"Json 파일을 읽기 실패 : {e}")
+                        existing_data = []
+                
+                existing_data.extend(inference.items)
+
+                try:
+                    with open(RESULT_FILE_PATH, "w", encoding="utf-8") as f:
+                        json.dump(existing_data, f, ensure_ascii=False, indent=4)
+                except Exception as e:
+                    logger.error(f"Json 파일 쓰기 실패 : {e}")
 
             for item in inference.items:
                 payload = {"event": "detection", "item": item}
