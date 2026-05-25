@@ -117,7 +117,7 @@ def calculate_real_depth(
     if pothole_region.size == 0:
         return 0.0
 
-    d_bottom = np.percentile(pothole_region, 1)
+    d_bottom = np.percentile(pothole_region, 10)
     pixel_diff = abs(d_road - d_bottom)
 
     return float((pixel_diff * max_depth_cm) / 100.0)

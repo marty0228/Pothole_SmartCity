@@ -1,6 +1,6 @@
 import base64
 
-image_path = "test_model5.jpg"  # 테스트할 이미지 파일명으로 수정
+image_path = "test_model14.jpg"  # 테스트할 이미지 파일명으로 수정
 
 with open(image_path, "rb") as f:
     image_b64 = base64.b64encode(f.read()).decode("utf-8")
