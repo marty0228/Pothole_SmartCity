@@ -158,21 +158,11 @@ def _boxes_overlap(box1: list[int], box2: list[int], margin: int = 6) -> bool:
 
 
 def _draw_annotated_frame(frame_bgr: np.ndarray, items: list[dict[str, Any]]) -> str:
-    """
-    원본 프레임 위에 bbox + pothole / 6.0cm 형태의 라벨을 그린 뒤,
-    base64 JPEG 문자열로 반환한다.
-
-    - confidence는 이미지에 표시하지 않음
-    - 라벨끼리 겹치면 자동으로 피해서 배치
-    - 라벨과 포트홀은 빨간 선으로 연결
-    """
-
     output = frame_bgr.copy()
     image_h, image_w = output.shape[:2]
 
     placed_labels: list[list[int]] = []
 
-    # 화면 아래쪽, 즉 가까운 포트홀부터 라벨 우선 배치
     sorted_items = sorted(
         items,
         key=lambda item: item.get("bbox", [0, 0, 0, 0])[3],
@@ -200,9 +190,6 @@ def _draw_annotated_frame(frame_bgr: np.ndarray, items: list[dict[str, Any]]) ->
 
         label = f"{damage_type} / {depth_cm:.1f}cm"
 
-        # -----------------------------
-        # 1. 포트홀 반투명 빨간 표시
-        # -----------------------------
         overlay = output.copy()
 
         cx = int((x1 + x2) / 2)
@@ -232,9 +219,6 @@ def _draw_annotated_frame(frame_bgr: np.ndarray, items: list[dict[str, Any]]) ->
             3
         )
 
-        # -----------------------------
-        # 2. 라벨 크기 계산
-        # -----------------------------
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.75
         thickness = 2
@@ -297,7 +281,6 @@ def _draw_annotated_frame(frame_bgr: np.ndarray, items: list[dict[str, Any]]) ->
                 selected_y = cand_y
                 break
 
-        # 후보가 전부 겹치면 이미지 위쪽부터 빈 공간 탐색
         if selected_box is None:
             for scan_y in range(5, max(6, image_h - label_h - 5), label_h + 8):
                 for scan_x in range(5, max(6, image_w - label_w - 5), 30):
@@ -317,7 +300,6 @@ def _draw_annotated_frame(frame_bgr: np.ndarray, items: list[dict[str, Any]]) ->
                 if selected_box is not None:
                     break
 
-        # 그래도 없으면 bbox 위쪽에 강제 배치
         if selected_box is None:
             selected_x = max(5, min(x1, image_w - label_w - 5))
             selected_y = max(5, min(y1 - label_h - gap, image_h - label_h - 5))
@@ -332,9 +314,6 @@ def _draw_annotated_frame(frame_bgr: np.ndarray, items: list[dict[str, Any]]) ->
 
         lx1, ly1, lx2, ly2 = selected_box
 
-        # -----------------------------
-        # 3. 라벨과 bbox 연결선
-        # -----------------------------
         label_cx = int((lx1 + lx2) / 2)
         label_cy = int((ly1 + ly2) / 2)
 
@@ -346,9 +325,6 @@ def _draw_annotated_frame(frame_bgr: np.ndarray, items: list[dict[str, Any]]) ->
             2
         )
 
-        # -----------------------------
-        # 4. 라벨 배경 + 텍스트
-        # -----------------------------
         cv2.rectangle(
             output,
             (lx1, ly1),
@@ -668,11 +644,6 @@ async def ingest_socket(websocket: WebSocket) -> None:
                 continue
 
             if inference.items:
-                # =========================
-                # 1. result.json 저장
-                # bbox는 저장하지 않고 기존 형식만 저장
-                # =========================
-
                 existing_data = []
 
                 if RESULT_FILE_PATH.exists() and RESULT_FILE_PATH.stat().st_size > 0:
@@ -713,11 +684,6 @@ async def ingest_socket(websocket: WebSocket) -> None:
                 except Exception as e:
                     logger.error("Json 파일 쓰기 실패 : %s", e)
 
-                # =========================
-                # 2. 라벨 그려진 이미지 반환
-                # bbox가 필요하므로 inference.items 그대로 사용
-                # =========================
-
                 image_payload = {
                     "event": "annotated_frame",
                     "image": inference.annotated_image,
@@ -730,10 +696,6 @@ async def ingest_socket(websocket: WebSocket) -> None:
 
                 await broadcast(image_payload)
                 await websocket.send_text(json.dumps(image_payload, ensure_ascii=False))
-
-                # =========================
-                # 3. 기존 detection 이벤트도 유지
-                # =========================
 
                 for item in inference.items:
                     payload = {

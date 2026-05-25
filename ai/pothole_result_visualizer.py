@@ -13,10 +13,6 @@ from ultralytics import YOLO
 from IPython.display import display
 
 
-# =========================
-# 1. 경로 설정
-# =========================
-
 # 분석할 이미지 경로
 TARGET_IMAGE = " "
 
@@ -111,9 +107,6 @@ class PotholeUNet(nn.Module):
         return torch.sigmoid(out)
 
 
-# =========================
-# 3. 보조 함수
-# =========================
 
 def normalize_depth_map(depth_map):
     depth = depth_map.astype(np.float32)
@@ -136,7 +129,6 @@ def calculate_real_depth(d_road, pothole_region, max_depth_cm=20.0):
     if pothole_region is None or pothole_region.size == 0:
         return 0.0
 
-    # 포트홀 영역에서 가장 깊은 부분에 가까운 값 사용
     d_bottom = np.percentile(pothole_region, 1)
 
     depth_diff = abs(float(d_road) - float(d_bottom))
@@ -148,11 +140,6 @@ def calculate_real_depth(d_road, pothole_region, max_depth_cm=20.0):
 
 
 def show_pothole_result_image(image_path, visual_reports):
-    """
-    원본 이미지 위에 포트홀 bbox와 깊이(cm)만 표시.
-    라벨이 겹치지 않도록 자동 배치.
-    confidence는 표시하지 않음.
-    """
 
     image = Image.open(image_path).convert("RGB")
 
@@ -161,7 +148,7 @@ def show_pothole_result_image(image_path, visual_reports):
     except:
         font = ImageFont.load_default()
 
-    # 1. 먼저 포트홀 영역과 bbox만 그림
+
     overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
 
@@ -173,7 +160,7 @@ def show_pothole_result_image(image_path, visual_reports):
         rx = max((x2 - x1) / 2, 15)
         ry = max((y2 - y1) / 2, 15)
 
-        # 포트홀 빨간 반투명 표시
+
         overlay_draw.ellipse(
             [cx - rx, cy - ry, cx + rx, cy + ry],
             fill=(255, 0, 0, 85),
@@ -181,7 +168,7 @@ def show_pothole_result_image(image_path, visual_reports):
             width=4
         )
 
-        # bbox
+
         overlay_draw.rectangle(
             [x1, y1, x2, y2],
             outline=(255, 0, 0, 255),
@@ -191,7 +178,6 @@ def show_pothole_result_image(image_path, visual_reports):
     image = Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
     draw = ImageDraw.Draw(image)
 
-    # 2. 라벨 겹침 방지 함수들
     placed_label_boxes = []
 
     def is_overlap(box1, box2, margin=6):
@@ -219,7 +205,6 @@ def show_pothole_result_image(image_path, visual_reports):
 
         gap = 8
 
-        # 후보 위치들: 위, 아래, 오른쪽, 왼쪽, 더 위, 더 아래
         candidates = [
             (x1, y1 - label_h - gap),
             (x1, y2 + gap),
@@ -236,7 +221,6 @@ def show_pothole_result_image(image_path, visual_reports):
             if all(not is_overlap(cand_box, placed) for placed in placed_label_boxes):
                 return cand_x, cand_y, cand_box
 
-        # 그래도 겹치면 이미지 위쪽부터 빈 줄 찾기
         for y in range(5, img_h - label_h - 5, label_h + 8):
             for x in range(5, img_w - label_w - 5, 30):
                 cand_box = [x, y, x + label_w, y + label_h]
@@ -244,13 +228,10 @@ def show_pothole_result_image(image_path, visual_reports):
                 if all(not is_overlap(cand_box, placed) for placed in placed_label_boxes):
                     return x, y, cand_box
 
-        # 최후 fallback
         cand_x, cand_y = clamp_label_box(x1, y1 - label_h - gap, label_w, label_h, img_w, img_h)
         cand_box = [cand_x, cand_y, cand_x + label_w, cand_y + label_h]
         return cand_x, cand_y, cand_box
 
-    # 3. 가까운 포트홀부터 라벨을 우선 배치
-    # y2가 클수록 사진 아래쪽 = 가까움
     visual_reports_sorted = sorted(
         visual_reports,
         key=lambda r: r["bbox"][3],
@@ -283,7 +264,7 @@ def show_pothole_result_image(image_path, visual_reports):
 
         placed_label_boxes.append(label_box)
 
-        # 라벨과 포트홀 연결선
+
         box_cx = (x1 + x2) // 2
         box_cy = (y1 + y2) // 2
         label_cx = label_x + label_w // 2
@@ -295,13 +276,12 @@ def show_pothole_result_image(image_path, visual_reports):
             width=3
         )
 
-        # 라벨 배경
         draw.rectangle(
             [label_x, label_y, label_x + label_w, label_y + label_h],
             fill=(255, 0, 0)
         )
 
-        # 라벨 글자
+
         draw.text(
             (label_x + pad_x, label_y + pad_y),
             label,
@@ -311,10 +291,6 @@ def show_pothole_result_image(image_path, visual_reports):
 
     display(image)
 
-
-# =========================
-# 4. 메인 실행 함수
-# =========================
 
 def run_pothole_detection_image_only(
     target_image=TARGET_IMAGE,
@@ -374,7 +350,6 @@ def run_pothole_detection_image_only(
     pred_map = ensemble_pred.squeeze().detach().cpu().numpy()
     pred_map = normalize_depth_map(pred_map)
 
-    # YOLO bbox는 원본 이미지 기준이므로 depth map도 원본 크기로 resize
     pred_map_resized = cv2.resize(
         pred_map,
         (orig_w, orig_h),
@@ -435,7 +410,6 @@ def run_pothole_detection_image_only(
             cls_id = int(class_ids[idx])
             raw_name = class_names[cls_id]
 
-            # class 이름이 pothole이면 pothole, 아니면 그대로 사용
             if raw_name.lower() == "pothole":
                 damage_type = "pothole"
             else:
@@ -469,10 +443,5 @@ def run_pothole_detection_image_only(
     show_pothole_result_image(target_image, visual_reports)
 
     return visual_reports
-
-
-# =========================
-# 5. 실행
-# =========================
 
 visual_reports = run_pothole_detection_image_only()
