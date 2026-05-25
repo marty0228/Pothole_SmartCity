@@ -47,7 +47,7 @@ class KFoldPotholeDataset(Dataset):
         # 파란색이 0.0, 빨간색이 1.0이 되도록 변환
         depth = (120.0 - h) / 120.0
 
-        # 빨간색 주변부 노이즈 및 배경(까만색 등) 예외 처리 가두기
+        # 빨간색 주변부 노이즈 및 배경 예외 처리 가두기
         depth = np.clip(depth, 0.0, 1.0)
 
         return depth
@@ -56,13 +56,13 @@ class KFoldPotholeDataset(Dataset):
         # RGB 원본 이미지 불러오기
         image = np.array(Image.open(self.img_paths[idx]).convert('RGB'))
 
-        # 정답 원본 이미지 불러오기 (RGB)
+        # 정답 원본 이미지 불러오기 
         tdisp_rgb = np.array(Image.open(self.tdisp_paths[idx]).convert('RGB'))
 
         # 3차원을 1차원으로 변경
         tdisp_depth = self._decode_tdisp_to_depth(tdisp_rgb)
 
-        # 데이터 증강 적용 (원본 이미지와 변환된 깊이 지도를 동시에 똑같이 변형)
+        # 데이터 증강 적용 
         if self.transform:
             augmented = self.transform(image=image, mask=tdisp_depth)
             image = augmented['image']
@@ -175,21 +175,21 @@ class PotholeUNet(nn.Module):
     
 class EdgeAwareDepthLoss(nn.Module):
     def __init__(self, alpha=0.5):
-        # alpha: 경계선(절벽)을 얼마나 중요하게 채점할지 결정하는 가중치
+        # alpha: 경계선을 얼마나 중요하게 채점할지 결정하는 가중치
         super(EdgeAwareDepthLoss, self).__init__()
         self.l1_loss = nn.L1Loss()
         self.alpha = alpha
 
     def forward(self, pred, target):
-        # 깊이 차이 (L1 Loss)
+        # 깊이 차이
         l1 = self.l1_loss(pred, target)
 
-        # X축(가로)과 Y축(세로)으로 인접한 픽셀간의 차이를 구함 
+        # X축과 Y축으로 인접한 픽셀간의 차이를 구함 
         # 예측한 깊이 지도의 가로/세로 절벽
         pred_dx = torch.abs(pred[:, :, :, :-1] - pred[:, :, :, 1:])
         pred_dy = torch.abs(pred[:, :, :-1, :] - pred[:, :, 1:, :])
 
-        # 정답지(Label)의 가로/세로 절벽
+        # 정답지의 가로/세로 절벽
         target_dx = torch.abs(target[:, :, :, :-1] - target[:, :, :, 1:])
         target_dy = torch.abs(target[:, :, :-1, :] - target[:, :, 1:, :])
 

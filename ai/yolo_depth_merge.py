@@ -239,7 +239,7 @@ for report in final_reports:
 # 저장할 파일 경로
 output_file = '../client_3d/result.json'
 
-# 1. 기존 데이터 읽어오기 (파일이 이미 존재할 경우)
+# 1. 기존 데이터 읽어오기 
 if os.path.exists(output_file):
     with open(output_file, 'r', encoding='utf-8') as f:
         try:
