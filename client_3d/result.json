@@ -125,32 +125,10 @@
         "type": "pothole",
         "lat": 37.551302,
         "lng": 127.075108,
-        "width_m": 21.0,
-        "length_m": 14.0,
-        "depth_m": 0.064,
+        "width_m": 332.0,
+        "length_m": 177.0,
+        "depth_m": 0.014,
         "confidence": 0.63,
-        "detected_at": "2026-05-25T10:52:50Z"
-    },
-    {
-        "id": "ph-20260525-002",
-        "type": "pothole",
-        "lat": 37.551302,
-        "lng": 127.075108,
-        "width_m": 56.0,
-        "length_m": 28.0,
-        "depth_m": 0.012,
-        "confidence": 0.47,
-        "detected_at": "2026-05-25T10:52:50Z"
-    },
-    {
-        "id": "ph-20260525-003",
-        "type": "pothole",
-        "lat": 37.551302,
-        "lng": 127.075108,
-        "width_m": 86.0,
-        "length_m": 51.0,
-        "depth_m": 0.03,
-        "confidence": 0.39,
-        "detected_at": "2026-05-25T10:52:50Z"
+        "detected_at": "2026-05-25T11:42:18Z"
     }
 ]
